@@ -23,7 +23,8 @@ simulation_*.py:
 		
 neutrino_functions_*.py:
 	
-	This file includes all important functions for the neutrino part of the simulation
+	This file includes all important functions for the neutrino 
+	part of the simulation
 
 
 dm_functions.py:
@@ -33,4 +34,5 @@ dm_functions.py:
 
 create_lookupfiles_*.py:	
 	
-	This part creates the neutrino energy spectra for a simulation and further lookup-files that are used.
+	This part creates the neutrino energy spectra for a simulation
+	and further lookup-files that are used.
