@@ -1,0 +1,7 @@
+Version 1.0
+
+This code simulates a directional direct dark matter detector and finds whether a given detector set-up is sensitive to a to be specified dark matter mass and dark matter-nucleon cross-section.
+
+This code consists out of 5 main files:
+
+
