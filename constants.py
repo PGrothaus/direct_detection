@@ -32,6 +32,7 @@ AU=149597870700.#m
 mP=0.938272046
 mN=0.939565379
 amu=0.931494061#GeV
+
 ###############
 #DM properties#
 ###############
@@ -42,13 +43,16 @@ vE=232.e5#cm/s
 sigma_v=v0/sqrt(2.)#cm/s
 sigma0=1.e-40
 
-#isoevents=2.3# at 90% c.l. (from 1307.5458, p7)
-isoevents=0.06#to avoid memory error
+isoevents=2.3# at 90% c.l. (from 1307.5458, p7)
+#isoevents=0.06#to avoid memory error
 
-###################
-#detector material#
-###################
-###
+
+######################################
+###@ToDo: Choose detector paramters###
+######################################
+
+######detector material
+######
 
 ###XENON
 ###
@@ -66,7 +70,8 @@ isoevents=0.06#to avoid memory error
 #N=22.
 
 ###CF4
-###	(must do for now, think about it again. DM scatters 10 times more on the F cause of A^2 and CF_4)
+###	(must do for now, think about it again. 
+###  DM scatters 10 times more on the F cause of A^2 and CF_4)
 A=0.2*88.0043
 Z=0.2*(4.*9.+1.*6.)
 N=0.2*(4.*10.+1.*6.)
@@ -77,44 +82,57 @@ N=0.2*(4.*10.+1.*6.)
 #Z=2.
 #N=2.
 
-#mT=Z*mP+N*mN#in GeV
-mT=A*amu
-Qw=N-(1.-4.*sW2)*Z
+
+###detector parameters
+###
+E_thr=5.#lower energy threshold in keV
+upper_threshold=100.#keV
+
+###energy and angular resolutions, energy efficiency
+### (see page 8 of paper)
+angle_res=0.52#30 degree in radians!
+energy_res=0.1
+eff_name='eff_cf4_5keV.dat'
+
+######################################
+###End ToDo                        ###
+######################################
+
+#parameters for nuclear form factor
 cf=1.23*A**(1./3)-0.6#fm
 sf=0.9#fm
 af=0.52#fm
 rn=sqrt(cf**2+7./3*pi**2*af**2-5.*sf**2)#fm
 
+mT=A*amu
+Qw=N-(1.-4.*sW2)*Z
 
-###options
+###set up grid for 2d pdfs
 ###
-E_thr=5.
-basenamepdf='pdfs/2dpdf_CF4_'+str(E_thr)+'keV'
-eff_name='eff_cf4_5keV.dat'
-N_erec=31
-N_theta=16
-upper_threshold=100.#keV
-
-nu_mod=True		#whether the annual modulation of neutrinos should be included
-dm_mod=True		#whether annual modulation of dark matter should be included
-rec_eff=True		#whether detector response in recoil energy should be included
-			#(need to reproduce neutrino lookups if this is switched!)
-channel_time=True	#whether the time should be included in the pdf's
-channel_Erec=True	#whether recoil energy should be included in the pdf's
-channel_angle=True	#whether cos theta should be included and make the pdf 2 dimensional
-gain_direction=True	#to find out how much directionality helps.
-resolution_angle=True
-resolution_energy=True
-nu_uncertain=True	#whether to include neutrino flux uncertainties
-
+N_erec=31#number of bins in recoil energy for 2d pdf
+N_theta=16#number of bins in event angle for 2d pdf
 E_rec_bin=np.linspace(E_thr,upper_threshold,N_erec)
 theta_bin=np.linspace(-1.,1.,N_theta)
+basenamepdf='pdfs/2dpdf_CF4_'+str(E_thr)+'keV'
 
-angle_res=0.52#30 degree in radians
-energy_res=0.1#this has to be confirmed by someone
+###options
+### (not sure if they really do what they say they do)
+nu_mod=True	 #whether the annual modulation of neutrinos should be included
+dm_mod=True	 #whether annual modulation of dark matter should be included
+rec_eff=True #whether detector response in recoil energy should be included
+			 #(need to newly create neutrino lookups if this is switched!)
+
+channel_time=True	#whether the time should be included in the pdf's
+channel_Erec=True	#whether recoil energy should be included in the pdf's
+channel_angle=True	#whether cos theta should be included and make the pdf 
+                    #2 dimensional
+gain_direction=True	#to find out how much directionality helps.
+resolution_angle=True  #whether to include angular smearing
+resolution_energy=True #whether to include energy smearing
+nu_uncertain=True	   #whether to include neutrino flux uncertainties
 
 ###implementation of errorfunction
-###
+###  (not available for some python versions)
 def erf(x):
     # save the sign of x
     sign = 1 if x >= 0 else -1

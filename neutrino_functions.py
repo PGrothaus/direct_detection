@@ -18,7 +18,7 @@ f17_norm=3.25E6
 b7_norm=4.84E9
 
 ###including the branching ratios for the 7Be de excitation
-###and a factor 100 for keeping the pdf for the lines
+###and a factor 1000 for keeping the pdf for the lines
 ###normalised when converting keV into MeV
 ###
 norm_vector=[pp_norm,hep_norm,b8_norm,n13_norm,o15_norm,f17_norm,1000.*0.9*b7_norm,1000.*0.1*b7_norm,1000.*1.E7]
