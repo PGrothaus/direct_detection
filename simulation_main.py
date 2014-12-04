@@ -12,7 +12,7 @@ import scipy
 from scipy.interpolate import RectBivariateSpline
 from scipy.interpolate import interp1d,SmoothBivariateSpline
 from scipy.stats import norm
-
+sys.path.append('/home/pg3/Packages/pyephem-3.7.5.3/libastro-3.7.5')
 ##############################################################################
 
 
@@ -121,7 +121,7 @@ if test==0:
     print 'NEUTRINOS'
     print ''
     print 'creating lookup tables...'
-    create_all_neutrino_lookuptables(Npoints=500,Nsteps=1000)
+    #create_all_neutrino_lookuptables(Npoints=500,Nsteps=1000)
     print '         DONE!'
     print ''
     print 'calculating expected neutrino events...'
@@ -1302,6 +1302,14 @@ for mm in range (len(m_DM_array)):
                             (angle_info_nu,time_info+angle_info))
                         erec_info_nu=np.concatenate(\
                             (erec_info_nu,time_info+erec_info))
+                    ###@ToDo:
+                    ###put already into a histogram to avoid stacking
+                    ###stacking together huge arrays.
+                    ###Instead, store the numbers of the bins only.
+                    ###
+                    ###That will need changes in a long part of
+                    ###the code from here up to the statistics part
+                    ###Especially, need to define the histograms before!
                     Q_SB_angle=np.concatenate(\
                         (Q_SB_angle,angle_info_DM+angle_info_nu))
                     Q_SB_erec=np.concatenate(
@@ -1392,6 +1400,8 @@ for mm in range (len(m_DM_array)):
                     id=id[0]-1
                     return hist_SB[id]
         
+                ###@ End ToDo
+                ###
                 ###calculate overlap of both distributions
                 ###
                 cl=[]
