@@ -12,6 +12,7 @@ import scipy
 from scipy.interpolate import RectBivariateSpline
 from scipy.interpolate import interp1d,SmoothBivariateSpline
 from scipy.stats import norm
+#If libastro is locally installed, add it to the path variable
 sys.path.append('/home/pg3/Packages/pyephem-3.7.5.3/libastro-3.7.5')
 ##############################################################################
 
