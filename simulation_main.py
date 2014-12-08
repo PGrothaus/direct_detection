@@ -8,6 +8,8 @@ from dm_functions import *
 from neutrino_functions import *
 from constants import *
 from create_lookupfiles import *
+import statistic
+import event_simulation
 import scipy 
 from scipy.interpolate import RectBivariateSpline
 from scipy.interpolate import interp1d,SmoothBivariateSpline
@@ -54,7 +56,7 @@ accuracy=0.0075         #amount by how much both Q_pdf integrals
                         #are required to be similar when calculating
                         #the overlap
 
-factor=20               #num of loops when generating the toy models/events
+factor=5               #num of loops when generating the toy models/events
 ###For the pdf's:
 ###
 N_tt=10                 #num of lookup tables for DM, i.e. time bins
@@ -65,7 +67,7 @@ N_min_DM=10000          #num of created events to create 2d pdf dark matter
 
 ###For the pseudo experiments:
 ###
-source_length=5000      #number of events in event pool
+source_length=500      #number of events in event pool
                         #total pool size = factor * source_length
 N_Q=10                  #num of times to vary the fluxes when evaluating Q
                         #important for neutrino flux uncertainties:
@@ -279,87 +281,19 @@ if test==0:
     print ''
     print 'simulating neutrino events...'
 
-###solar neutrinos
-###
+lin_B_t = lambda r: r * t1_f
 print '         solar...'
-t_src_solar_nu=[]
-E_rec_src_solar_nu=[]
-cos_src_solar_nu=[]
-
-solar_length=max(10,min(int(1.*N_sun0*N_sim),source_length))
-void_source=np.zeros(solar_length)
-for ff in range (factor):
-    t_src_solar_nu.append(void_source)
-    E_rec_src_solar_nu.append(void_source)
-    cos_src_solar_nu.append(void_source)
-if channel_time==True:
-    t_src_solar_nu=[]
-    for ff in range (factor):
-        r_array=np.random.uniform(0.,1.,solar_length)
-        t_src_solar_nu.append(rnd_B_t(r_array))
-if channel_Erec==True:
-    E_rec_src_solar_nu,cos_src_solar_nu=[],[]
-    for ff in range (factor):
-        E_rec_tmp,cos_tmp=recoil_nu(E_thr,0,N_evt=solar_length,mode=1)
-        E_rec_src_solar_nu.append(E_rec_tmp)
-        cos_src_solar_nu.append(cos_tmp)
-
-###atmospheric neutrinos
-### (minimum number of events to be gerated 
-###  for the pool of neutrinos is 10 for each species)
+t_src_solar_nu, E_rec_src_solar_nu, cos_src_solar_nu = \
+    event_simulation.simulate_events( 0, N_sun0, N_sim, source_length, factor,\
+                                      rnd_B_t)
 print '         atmospheric...'
-t_src_atmo_nu=[]
-E_rec_src_atmo_nu=[]
-cos_src_atmo_nu=[]
-
-atmo_length=max(10,min(int(1.*N_atmo0*N_sim),source_length))
-void_source=np.zeros(atmo_length)
-for ff in range (factor):
-    t_src_atmo_nu.append(void_source)
-    E_rec_src_atmo_nu.append(void_source)
-    cos_src_atmo_nu.append(void_source)
-if channel_time==True:
-    t_src_atmo_nu=[]
-    for ff in range (factor):
-        r_array=np.random.uniform(0.,1.,atmo_length)
-        t_src_atmo_nu.append(r_array*t1_f)
-if channel_Erec==True:
-    E_rec_src_atmo_nu,cos_src_atmo_nu=[],[]
-    for ff in range (factor):
-        E_rec_tmp,cos_tmp=recoil_nu(E_thr,1,N_evt=atmo_length,mode=1)
-        E_rec_src_atmo_nu.append(E_rec_tmp)
-        cos_src_atmo_nu.append(cos_tmp)
-
-###DSNB neutrinos
-###
+t_src_atmo_nu, E_rec_src_atmo_nu, cos_src_atmo_nu = \
+    event_simulation.simulate_events(1, N_atmo0, N_sim, source_length, factor,\
+                                      lin_B_t )
 print '         DSNB...'
-t_src_dsnb_nu=[]
-E_rec_src_dsnb_nu=[]
-cos_src_dsnb_nu=[]
-
-dsnb_length=max(10,min(int(N_dsnb0*N_sim),source_length))
-void_source=np.zeros(dsnb_length)
-
-for ff in range (factor):
-    t_src_dsnb_nu.append(void_source)
-    E_rec_src_dsnb_nu.append(void_source)
-    cos_src_dsnb_nu.append(void_source)
-if channel_time==True:
-    t_src_dsnb_nu=[]
-    for ff in range (factor):
-        r_array=np.random.uniform(0.,1.,dsnb_length)
-        t_src_dsnb_nu.append(t1_f*r_array)
-
-if channel_Erec==True:
-    E_rec_src_dsnb_nu,cos_src_dsnb_nu=[],[]
-    for ff in range (factor):
-        E_rec_tmp,cos_tmp=recoil_nu(E_thr,2,N_evt=dsnb_length,mode=1)
-        E_rec_src_dsnb_nu.append(E_rec_tmp)
-        cos_src_dsnb_nu.append(cos_tmp)
-
-del E_rec_tmp
-del cos_tmp
-
+t_src_dsnb_nu, E_rec_src_dsnb_nu, cos_src_dsnb_nu = \
+    event_simulation.simulate_events(2, N_dsnb0, N_sim, source_length, factor,\
+                                      lin_B_t )
 if test==0:
     print '         DONE!'
     print ''
@@ -378,7 +312,7 @@ for mm in range (len(m_DM_array)):
     ###calculate the general annual modulation for that DM mass
     ###
     print 'calculating expected dark matter events...'
-    time_array_DM,rate_array_DM,N_DM0,dt_DM=\
+    time_array_DM,rate_array_DM,N_DM0,dt_DM = \
                     tot_rate_dm(M_det,E_thr,m_DM_array[mm],t0,t1,steps=100)
     print '         DONE!   (depends on cross section)'
 
@@ -518,32 +452,8 @@ for mm in range (len(m_DM_array)):
     ###simulate DM events
     ###
     print 'simulate DM events...'
-    t_src_DM,E_rec_src_DM,cos_src_DM=[],[],[]
-    void_source=np.zeros(source_length)
-    for ff in range (factor):
-        t_src_DM.append(void_source)
-        E_rec_src_DM.append(void_source)
-        cos_src_DM.append(void_source)
-
-    if test==0:
-        if channel_time==True:
-            t_src_DM=[]
-        for ff in range (factor):
-            r_array=np.random.uniform(0.,1.,source_length)
-            t_tmp=rnd_DM_t(r_array)
-            t_src_DM.append(t_tmp)
-
-        if channel_Erec==True:
-                t_src_DM,E_rec_src_DM,cos_src_DM=[],[],[]
-                for ff in range (factor):
-                        t_tmp,E_rec_tmp,cos_tmp=\
-                            recoil_dm(E_thr,m_DM_array[mm],t0,t1,N_tt,\
-                            N_evt=source_length,mode=1)
-                        t_src_DM.append(t_tmp)
-                        E_rec_src_DM.append(E_rec_tmp)
-                        cos_src_DM.append(cos_tmp)
-        del E_rec_tmp
-        del cos_tmp
+    t_src_DM, E_rec_src_DM, cos_src_DM = event_simulation.simulate_dm_events(
+               m_DM_array[mm], source_length, factor, t0, t1, N_tt, rnd_DM_t)
 
     if test==1:
         N_DM=10
@@ -618,7 +528,9 @@ for mm in range (len(m_DM_array)):
             Q_SB_angle,Q_SB_erec=[],[]
     
             angle_info_DM,erec_info_DM=[],[]
-    
+            FIX_BIN_SIZES_B = 0
+            FIX_BIN_SIZES_SB = 0
+
             for ff in range (factor):
                 
                 #######################
@@ -678,60 +590,37 @@ for mm in range (len(m_DM_array)):
                     if channel_Erec==True:
                         ###solar
                         ###
+                        solar_length=max(10,min(int(1.*N_sun0*N_sim),\
+                                         source_length))
+                        atmo_length=max(10,min(int(1.*N_atmo0*N_sim),\
+                                         source_length))
+                        dsnb_length=max(10,min(int(1.*N_dsnb0*N_sim),\
+                                         source_length))
                         if solar_length>1:
-                            while ((len(E_rec_array_solar))<NN_solar):
-                                jj=np.random.randint(0,solar_length-1,\
-                                                       solar_length)
-                                t_array_tmp=t_src_solar_nu[ff][jj]
-                                E_rec_array_tmp=E_rec_src_solar_nu[ff][jj]
-                                cos_array_tmp=cos_src_solar_nu[ff][jj]
-                                t_array_solar=np.concatenate(\
-                                          (t_array_solar,t_array_tmp))
-                                E_rec_array_solar=np.concatenate(\
-                                          (E_rec_array_solar,E_rec_array_tmp))
-                                cos_array_solar=np.concatenate(\
-                                          (cos_array_solar,cos_array_tmp))
-                            t_array_solar=t_array_solar[:NN_solar]
-                            E_rec_array_solar=E_rec_array_solar[:NN_solar]
-                            cos_array_solar=cos_array_solar[:NN_solar]
-    
+                            t_array_solar, E_rec_array_solar, cos_array_solar=\
+                                event_simulation.get_event_array(\
+                                   NN_solar, solar_length, \
+                                   t_src_solar_nu[ff][:],\
+                                   E_rec_src_solar_nu[ff][:],\
+                                   cos_src_solar_nu[ff][:] )
                         ###atmo
                         ###
                         if atmo_length>1:
-                            while ((len(E_rec_array_atmo))<NN_atmo):
-                                jj=np.random.randint(0,atmo_length-1,\
-                                                       atmo_length)
-                                t_array_tmp=t_src_atmo_nu[ff][jj]
-                                E_rec_array_tmp=E_rec_src_atmo_nu[ff][jj]
-                                cos_array_tmp=cos_src_atmo_nu[ff][jj]
-                                t_array_atmo=np.concatenate(\
-                                        (t_array_atmo,t_array_tmp))
-                                E_rec_array_atmo=np.concatenate(\
-                                        (E_rec_array_atmo,E_rec_array_tmp))
-                                cos_array_atmo=np.concatenate(\
-                                        (cos_array_atmo,cos_array_tmp))
-                            t_array_atmo=t_array_atmo[:NN_atmo]
-                            E_rec_array_atmo=E_rec_array_atmo[:NN_atmo]
-                            cos_array_atmo=cos_array_atmo[:NN_atmo]
-    
+                            t_array_atmo, E_rec_array_atmo, cos_array_atmo =\
+                                event_simulation.get_event_array(\
+                                   NN_atmo, atmo_length, \
+                                   t_src_atmo_nu[ff][:],\
+                                   E_rec_src_atmo_nu[ff][:],\
+                                   cos_src_atmo_nu[ff][:] )
                         ###dsnb
                         ###
                         if dsnb_length>1:
-                            while ((len(E_rec_array_dsnb))<NN_dsnb):
-                                jj=np.random.randint(0,dsnb_length-1,\
-                                                       dsnb_length)
-                                t_array_tmp=t_src_dsnb_nu[ff][jj]
-                                E_rec_array_tmp=E_rec_src_dsnb_nu[ff][jj]
-                                cos_array_tmp=cos_src_dsnb_nu[ff][jj]
-                                t_array_dsnb=np.concatenate(\
-                                        (t_array_dsnb,t_array_tmp))
-                                E_rec_array_dsnb=np.concatenate(\
-                                        (E_rec_array_dsnb,E_rec_array_tmp))
-                                cos_array_dsnb=np.concatenate(\
-                                        (cos_array_dsnb,cos_array_tmp))
-                            t_array_dsnb=t_array_dsnb[:NN_dsnb]
-                            E_rec_array_dsnb=E_rec_array_dsnb[:NN_dsnb]
-                            cos_array_dsnb=cos_array_dsnb[:NN_dsnb]
+                            t_array_dsnb, E_rec_array_dsnb, cos_array_dsnb =\
+                                event_simulation.get_event_array(\
+                                   NN_dsnb, dsnb_length, \
+                                   t_src_dsnb_nu[ff][:],\
+                                   E_rec_src_dsnb_nu[ff][:],\
+                                   cos_src_dsnb_nu[ff][:] )
     
                     ###stick together in correct order
                     ###
@@ -873,17 +762,35 @@ for mm in range (len(m_DM_array)):
                                     np.log(mu_DM+mu_nu[ii]))
                         angle_info=pre+np.sum(time_info)+np.sum(angle_info)
                         erec_info=pre+np.sum(time_info)+np.sum(erec_info)
-                        Q_B_angle=np.concatenate(\
-                                (Q_B_angle,np.array([angle_info])))
-                        Q_B_erec=np.concatenate(\
-                                (Q_B_erec,np.array([erec_info])))
-    
+                        Q_B_angle = -2. * np.array( [angle_info] )
+                        Q_B_erec  = -2. * np.array( [erec_info] )
+
+                        if( 0 == FIX_BIN_SIZES_B):
+                            binsQBAngle = np.linspace(\
+                                0.8*np.min(Q_B_angle),1.2*np.max(Q_B_angle),\
+                                N_bins)
+                            binsQBErec = np.linspace(\
+                                0.8*np.min(Q_B_erec),1.2*np.max(Q_B_erec),\
+                                N_bins)
+                            Q_B_angle_histo = np.histogram( Q_B_angle,\
+                                bins = binsQBAngle )[0]
+                            Q_B_erec_histo  = np.histogram( Q_B_erec,\
+                                bins = binsQBErec )[0]
+
+                            FIX_BIN_SIZES_B = 1
+                        Q_B_angle_histo += np.histogram( Q_B_angle,\
+                                bins = binsQBAngle )[0]
+                        Q_B_erec_histo  += np.histogram( Q_B_erec,\
+                                bins = binsQBErec )[0]
+
                     del prob_nu_B_time
                     del prob_nu_S_time
                     del prob_nu_B_angle
                     del prob_nu_S_angle
                     del prob_nu_B_erec
                     del prob_nu_S_erec
+                    del Q_B_angle
+                    del Q_B_erec
     
                     if print_info==1:
                         print 'DONE!'
@@ -973,59 +880,31 @@ for mm in range (len(m_DM_array)):
                         ###solar
                         ###
                         if solar_length>1:
-                            while ((len(E_rec_array_solar))<NN_solar):
-                                jj=np.random.randint(0,solar_length-1,\
-                                                       solar_length)
-                                t_array_tmp=t_src_solar_nu[ff][jj]
-                                E_rec_array_tmp=E_rec_src_solar_nu[ff][jj]
-                                cos_array_tmp=cos_src_solar_nu[ff][jj]
-                                t_array_solar=np.concatenate(\
-                                        (t_array_solar,t_array_tmp))
-                                E_rec_array_solar=np.concatenate(\
-                                        (E_rec_array_solar,E_rec_array_tmp))
-                                cos_array_solar=np.concatenate(\
-                                        (cos_array_solar,cos_array_tmp))
-                            t_array_solar=t_array_solar[:NN_solar]
-                            E_rec_array_solar=E_rec_array_solar[:NN_solar]
-                            cos_array_solar=cos_array_solar[:NN_solar]
-    
+                            t_array_solar, E_rec_array_solar, cos_array_solar=\
+                                event_simulation.get_event_array(\
+                                   NN_solar, solar_length, \
+                                   t_src_solar_nu[ff][:],\
+                                   E_rec_src_solar_nu[ff][:],\
+                                   cos_src_solar_nu[ff][:] )
                         ###atmo
                         ###
                         if atmo_length>1:
-                            while ((len(E_rec_array_atmo))<NN_atmo):
-                                jj=np.random.randint(0,atmo_length-1,\
-                                                       atmo_length)
-                                t_array_tmp=t_src_atmo_nu[ff][jj]
-                                E_rec_array_tmp=E_rec_src_atmo_nu[ff][jj]
-                                cos_array_tmp=cos_src_atmo_nu[ff][jj]
-                                t_array_atmo=np.concatenate(\
-                                        (t_array_atmo,t_array_tmp))
-                                E_rec_array_atmo=np.concatenate(\
-                                        (E_rec_array_atmo,E_rec_array_tmp))
-                                cos_array_atmo=np.concatenate(\
-                                        (cos_array_atmo,cos_array_tmp))
-                            t_array_atmo=t_array_atmo[:NN_atmo]
-                            E_rec_array_atmo=E_rec_array_atmo[:NN_atmo]
-                            cos_array_atmo=cos_array_atmo[:NN_atmo]
-    
+                            t_array_atmo, E_rec_array_atmo, cos_array_atmo =\
+                                event_simulation.get_event_array(\
+                                   NN_atmo, atmo_length, \
+                                   t_src_atmo_nu[ff][:],\
+                                   E_rec_src_atmo_nu[ff][:],\
+                                   cos_src_atmo_nu[ff][:] )
                         ###dsnb
                         ###
                         if dsnb_length>1:
-                            while ((len(E_rec_array_dsnb))<NN_dsnb):
-                                jj=np.random.randint(0,dsnb_length-1,\
-                                                       dsnb_length)
-                                t_array_tmp=t_src_dsnb_nu[ff][jj]
-                                E_rec_array_tmp=E_rec_src_dsnb_nu[ff][jj]
-                                cos_array_tmp=cos_src_dsnb_nu[ff][jj]
-                                t_array_dsnb=np.concatenate(\
-                                        (t_array_dsnb,t_array_tmp))
-                                E_rec_array_dsnb=np.concatenate(\
-                                        (E_rec_array_dsnb,E_rec_array_tmp))
-                                cos_array_dsnb=np.concatenate(\
-                                        (cos_array_dsnb,cos_array_tmp))
-                            t_array_dsnb=t_array_dsnb[:NN_dsnb]
-                            E_rec_array_dsnb=E_rec_array_dsnb[:NN_dsnb]
-                            cos_array_dsnb=cos_array_dsnb[:NN_dsnb]
+                            t_array_dsnb, E_rec_array_dsnb, cos_array_dsnb =\
+                                event_simulation.get_event_array(\
+                                   NN_dsnb, dsnb_length, \
+                                   t_src_dsnb_nu[ff][:],\
+                                   E_rec_src_dsnb_nu[ff][:],\
+                                   cos_src_dsnb_nu[ff][:] )
+
     
                     ###stick together in correct order
                     ###
@@ -1180,31 +1059,6 @@ for mm in range (len(m_DM_array)):
                     prob_DM_B_erec=np.split(prob_DM_B_erec,n_split)
                     prob_DM_S_erec=np.split(prob_DM_S_erec,n_split)
     
-                    angle_info_DM,erec_info_DM=[],[]
-                    for ii in range (N_sim*N_Q):
-                        time_info=np.array([np.sum(np.log(\
-                            1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_time[ii]/\
-                            prob_DM_B_time[ii]))])
-                        angle_info=np.array([np.sum(np.log(\
-                            1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_angle[ii]/\
-                            prob_DM_B_angle[ii]))])
-                        erec_info=np.array([np.sum(np.log(\
-                            1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_erec[ii]/\
-                            prob_DM_B_erec[ii]))])
-                        pre=np.array([-mu_DM+\
-                            (n_nu_arr[ii]+n_array_DM[ii])*\
-                            (np.log(mu_nu[ii])-np.log(mu_nu[ii]+mu_DM))])
-                        angle_info_DM=np.concatenate(\
-                            (angle_info_DM,pre+time_info+angle_info))
-                        erec_info_DM=np.concatenate(\
-                            (erec_info_DM,pre+time_info+erec_info))
-    
-                    del prob_DM_B_time
-                    del prob_DM_S_time
-                    del prob_DM_B_angle
-                    del prob_DM_S_angle
-                    del prob_DM_B_erec
-                    del prob_DM_S_erec
                     
                     if print_info==1:
                         print 'DONE!'
@@ -1288,39 +1142,78 @@ for mm in range (len(m_DM_array)):
                         print 'put everything together'
     
                     angle_info_nu,erec_info_nu=[],[]
+                    angle_info_DM,erec_info_DM=[],[]
+
                     for ii in range (N_sim*N_Q):
-                        time_info=np.array([np.sum(np.log(\
+                        time_info_nu=np.array([np.sum(np.log(\
                                 1.+1.*mu_DM/mu_nu[ii]*prob_nu_S_time[ii]/\
                                 prob_nu_B_time[ii]))])
-                        angle_info=np.array([np.sum(np.log(\
+
+                        angle_info_nu=np.array([np.sum(np.log(\
                                 1.+1.*mu_DM/mu_nu[ii]*prob_nu_S_angle[ii]/\
                                 prob_nu_B_angle[ii]))])
-                        erec_info=np.array([np.sum(np.log(\
+
+                        erec_info_nu=np.array([np.sum(np.log(\
                                 1.+1.*mu_DM/mu_nu[ii]*prob_nu_S_erec[ii]/\
                                 prob_nu_B_erec[ii]))])
-                        angle_info_nu=np.concatenate(\
-                            (angle_info_nu,time_info+angle_info))
-                        erec_info_nu=np.concatenate(\
-                            (erec_info_nu,time_info+erec_info))
-                    ###@ToDo:
-                    ###put already into a histogram to avoid stacking
-                    ###stacking together huge arrays.
-                    ###Instead, store the numbers of the bins only.
-                    ###
-                    ###That will need changes in a long part of
-                    ###the code from here up to the statistics part
-                    ###Especially, need to define the histograms before!
-                    Q_SB_angle=np.concatenate(\
-                        (Q_SB_angle,angle_info_DM+angle_info_nu))
-                    Q_SB_erec=np.concatenate(
-                        (Q_SB_erec,erec_info_DM+erec_info_nu))
-        
+
+                        angle_info_nu = time_info + angle_info
+
+                        erec_info_nu  = time_info + erec_info
+
+                        time_info_DM=np.array([np.sum(np.log(\
+                            1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_time[ii]/\
+                            prob_DM_B_time[ii]))])
+
+                        angle_info_DM=np.array([np.sum(np.log(\
+                            1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_angle[ii]/\
+                            prob_DM_B_angle[ii]))])
+
+                        erec_info_DM=np.array([np.sum(np.log(\
+                            1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_erec[ii]/\
+                            prob_DM_B_erec[ii]))])
+
+                        pre=np.array([-mu_DM+\
+                            (n_nu_arr[ii]+n_array_DM[ii])*\
+                            (np.log(mu_nu[ii])-np.log(mu_nu[ii]+mu_DM))])
+                        
+                        angle_info_DM = pre + time_info_DM + angle_info_DM
+                        erec_info_DM = pre + time_info_DM + erec_info_DM
+
+                        Q_SB_angle = -2. * ( angle_info_DM + angle_info_nu )
+                        Q_SB_erec  = -2. * ( erec_info_DM + erec_info_nu )
+                        
+                        if( 0 == FIX_BIN_SIZES_SB):
+                            binsQSBAngle = np.linspace(\
+                                np.min(Q_SB_angle),np.max(Q_SB_angle),\
+                                N_bins)
+                            binsQSBErec = np.linspace(\
+                                np.min(Q_SB_erec),np.max(Q_SB_erec),\
+                                N_bins)
+                            FIX_BIN_SIZES_SB = 1
+                            Q_SB_angle_histo = np.histogram( Q_SB_angle,\
+                                    bins = binsQSBAngle )[0]
+                            Q_SB_erec_histo  = np.histogram( Q_SB_erec,\
+                                    bins = binsQSBErec )[0]
+                        Q_SB_angle_histo += np.histogram( Q_SB_angle,\
+                                bins = binsQSBAngle )[0]
+                        Q_SB_erec_histo  += np.histogram( Q_SB_erec,\
+                                bins = binsQSBErec )[0]
+
+                    del prob_DM_B_time
+                    del prob_DM_S_time
+                    del prob_DM_B_angle
+                    del prob_DM_S_angle
+                    del prob_DM_B_erec
+                    del prob_DM_S_erec
                     del prob_nu_B_time
                     del prob_nu_S_time
                     del prob_nu_B_angle
                     del prob_nu_S_angle
                     del prob_nu_B_erec
                     del prob_nu_S_erec
+                    del Q_SB_angle
+                    del Q_SB_erec
     
                     if print_info==1:
                         print 'DONE!'
@@ -1328,137 +1221,13 @@ for mm in range (len(m_DM_array)):
     
             ###calculate the values of the test statistics
             ###
-            for kk in range (2):
-                if kk==0:
-                    Q_B=-2*Q_B_angle
-                    Q_SB=-2*Q_SB_angle
-                if kk==1:
-                    Q_B=-2*Q_B_erec
-                    Q_SB=-2*Q_SB_erec
-                
-                if print_info==1:
-                    print 'Q B'
-                    print Q_B[:12]
-                    print ''
-                    print 'Q SB'
-                    print Q_SB[:12]
-                    print ''
-                    #plt.figure(1)
-                    #plt.hist(Q_B,bins=np.linspace(min(Q_B),max(Q_B),100))
-                    #plt.figure(3)
-                    #plt.hist(Q_SB,bins=np.linspace(min(Q_SB),max(Q_SB),100))
-                    #print 'Next two only non-zero if Q_B>75'
-                    #out1=np.where(Q_B>75,Psb_array_B,0)
-                    #print 'Psb array nu'
-                    #print out1
-                    #out1=np.where(Q_B>75,Pb_array_B,0)
-                    #print 'Pb array nu'
-                    #print out1
-                    #print''
-                if test==1:
-                    if Q_B[1] < (-36.) and Q_B[1] > (-39.):
-                        print '     Q_B OK!'
-                    if Q_SB[1] < (-50.) and Q_SB[1] > (-53.):
-                        print '     Q_SB OK!'
-                        #print Q_B,Q_SB
-                    else : 
-                        print 'some error!'
-                        print Q_B[:10], Q_SB[:10]
-                        
-                    sys.exit()
-        
-                ###Now, do statistics with it
-                ###
-                bins_B=np.linspace(min(Q_B),max(Q_B),N_bins)
-                bins_SB=np.linspace(min(Q_SB),max(Q_SB),N_bins)
-                
-                hist_B,Q_grid_B=np.histogram(Q_B,bins=bins_B,normed=True)
-                hist_SB,Q_grid_SB=np.histogram(Q_SB,bins=bins_SB,normed=True)
-    
-                Q_min=np.min(Q_grid_SB)
-                Q_max=np.max(Q_grid_B)
-    
-                Q_int=np.linspace(Q_min,Q_max,steps)
-                dQ_int=1.*(Q_max-Q_min)/steps
-            
-                ###The distributions with correct normalisation
-                ###
-                def pdf_B(Qv):
-                    if Qv<min(Q_grid_B) or Qv>max(Q_grid_B) \
-                                        or Qv==max(Q_grid_B):
-                        return 0.
-                    Qv=np.array([Qv,Qv])
-                    id=np.digitize(Qv,bins=Q_grid_B)
-                    id=id[0]-1
-                    return hist_B[id]
-        
-                def pdf_SB(Qv):
-                    if Qv<min(Q_grid_SB) or Qv>max(Q_grid_SB) :
-                        return 0.
-                    Qv=np.array([Qv,Qv])
-                    id=np.digitize(Qv,bins=Q_grid_SB)
-                    id=id[0]-1
-                    return hist_SB[id]
-        
-                ###@ End ToDo
-                ###
-                ###calculate overlap of both distributions
-                ###
-                cl=[]
-                int_B=0.
-                int_SB=0.
-                f_B0=pdf_B(Q_int[0])
-                f_SB0=pdf_SB(Q_int[0])
-                for ii in range(steps-1):
-                    f_B1=pdf_B(Q_int[ii+1])
-                    f_SB1=pdf_SB(Q_int[ii+1])
-                    int_B+=dQ_int*0.5*(f_B0+f_B1)
-                    int_SB+=dQ_int*0.5*(f_SB0+f_SB1)
-                    f_B0=f_B1
-                    f_SB0=f_SB1
-                    
-                    if np.min(Q_grid_SB)<np.min(Q_grid_B):
-                        if(abs((1.-int_SB)-int_B)<accuracy):
-                            if(int_B>0.):
-                                cl.append(abs(1.-int_SB))
-                            else:
-                                cl.append(0.)
-                    else:
-                        if(abs((1.-int_B)-int_SB)<accuracy):
-                            if(int_SB>0.):
-                                    cl.append(abs(1.-int_B))
-                            else:
-                                    cl.append(0.)
-        
-                    if(int_SB>0.995):
-                        break
-        
-    
-                ###Test distributions
-                ###
-                #if print_info==0:
-                #   qq=np.linspace(min(Q_grid_SB),max(Q_grid_B),250)
-                #   plt.figure(2)   
-                #   plt.hist(Q_B,bins=Q_grid_B,\
-                #           facecolor='b',alpha=0.5,normed=1.)
-                #   plt.hist(Q_SB,bins=Q_grid_SB,\
-                #           facecolor='r',alpha=0.5,normed=1.)
-                #   #for ii in range (len(qq)):
-                #   #   plt.plot(qq[ii],pdf_B(qq[ii]),'bo')
-                #   #   plt.plot(qq[ii],pdf_SB(qq[ii]),'ro')
-                #   plt.show(all)
-    
-                if(len(cl)==0):
-                    cl_avg=0.
-                else:
-                    cl_avg=1.*np.sum(cl)/len(cl)
-                if kk==0:
-                    cl_angle=cl_avg
-                if kk==1:
-                    cl_erec=cl_avg
-    
-    
-                
+            cl_angle = statistic.get_cl( Q_SB_angle_histo, Q_B_angle_histo,
+                                          binsQSBAngle, binsQBAngle, 
+                                          N_bins, steps, accuracy)
+            cl_erec= statistic.get_cl( Q_SB_erec_histo, Q_B_erec_histo,
+                                       binsQSBErec, binsQBErec,
+                                       N_bins, steps, accuracy )
+
             ###write to file
             ###
             f=open(filename_dm,'a')
