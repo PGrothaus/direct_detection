@@ -47,7 +47,7 @@ rnd.seed()
 
 ###flux uncertainties
 ### (extrapolated ten years)
-nu_sigma=np.array([0.08,0.1,0.1])#in fraction of N
+nu_sigma=np.array([0.00008,0.00001,0.00001])#in fraction of N
 
 ###Choose values for simulation
 ###
@@ -57,7 +57,7 @@ accuracy=0.0075         #amount by how much both Q_pdf integrals
                         #are required to be similar when calculating
                         #the overlap
 
-factor=5               #num of loops when generating the toy models/events
+factor=2               #num of loops when generating the toy models/events
 ###For the pdf's:
 ###
 N_tt=10                 #num of lookup tables for DM, i.e. time bins
@@ -68,12 +68,12 @@ N_min_DM=10000          #num of created events to create 2d pdf dark matter
 
 ###For the pseudo experiments:
 ###
-source_length=500      #number of events in event pool
+source_length=5000      #number of events in event pool
                         #total pool size = factor * source_length
-N_Q=10                  #num of times to vary the fluxes when evaluating Q
+N_Q=1                  #num of times to vary the fluxes when evaluating Q
                         #important for neutrino flux uncertainties:
                         #we have to vary the expectations
-N_sim=100                #num of pseudo experiments generated in simulation
+N_sim=1000               #num of pseudo experiments generated in simulation
                         #total number of pseudo experiments = 
                         #factor * N_sim * N_Q
 
@@ -283,18 +283,7 @@ if test==0:
     print 'simulating neutrino events...'
 
 lin_B_t = lambda r: r * t1_f
-print '         solar...'
-t_src_solar_nu, E_rec_src_solar_nu, cos_src_solar_nu = \
-    event_simulation.simulate_events( 0, N_sun0, N_sim, source_length, factor,\
-                                      rnd_B_t)
-print '         atmospheric...'
-t_src_atmo_nu, E_rec_src_atmo_nu, cos_src_atmo_nu = \
-    event_simulation.simulate_events(1, N_atmo0, N_sim, source_length, factor,\
-                                      lin_B_t )
-print '         DSNB...'
-t_src_dsnb_nu, E_rec_src_dsnb_nu, cos_src_dsnb_nu = \
-    event_simulation.simulate_events(2, N_dsnb0, N_sim, source_length, factor,\
-                                      lin_B_t )
+
 if test==0:
     print '         DONE!'
     print ''
@@ -450,11 +439,6 @@ for mm in range (len(m_DM_array)):
         pdf_array=5./D_time*np.ones(len(time_array_nu))
         pdf_DM_t=interp1d(time_array_DM,pdf_array,kind='linear')
 
-    ###simulate DM events
-    ###
-    print 'simulate DM events...'
-    t_src_DM, E_rec_src_DM, cos_src_DM = event_simulation.simulate_dm_events(
-               m_DM_array[mm], source_length, factor, t0, t1, N_tt, rnd_DM_t)
 
     if test==1:
         N_DM=10
@@ -529,11 +513,32 @@ for mm in range (len(m_DM_array)):
             Q_SB_angle,Q_SB_erec=[],[]
     
             angle_info_DM,erec_info_DM=[],[]
+
+            binsQBAngle = np.array( [] )
+            binsQBErec  = np.array( [] )
+            binsQSBAngle = np.array( [] )
+            binsQSBErec = np.array( [] )
             FIX_BIN_SIZES_B = 0
             FIX_BIN_SIZES_SB = 0
 
             for ff in range (factor):
-                
+                ###simulate neutrino events
+                ###
+                t_src_solar_nu, E_rec_src_solar_nu, cos_src_solar_nu = \
+                    event_simulation.simulate_events( 0, N_sun0, N_sim,\
+                    source_length, rnd_B_t)
+                t_src_atmo_nu, E_rec_src_atmo_nu, cos_src_atmo_nu = \
+                    event_simulation.simulate_events(1, N_atmo0, N_sim,\
+                    source_length, lin_B_t )
+                t_src_dsnb_nu, E_rec_src_dsnb_nu, cos_src_dsnb_nu = \
+                    event_simulation.simulate_events(2, N_dsnb0, N_sim,\
+                    source_length, lin_B_t )
+                ###simulate DM events
+                ###
+                t_src_DM, E_rec_src_DM, cos_src_DM = \
+                    event_simulation.simulate_dm_events( m_DM_array[mm],\
+                                    source_length, t0, t1, N_tt, rnd_DM_t)
+
                 #######################
                 ###B only hypothesis###
                 #######################
@@ -601,27 +606,27 @@ for mm in range (len(m_DM_array)):
                             t_array_solar, E_rec_array_solar, cos_array_solar=\
                                 event_simulation.get_event_array(\
                                    NN_solar, solar_length, \
-                                   t_src_solar_nu[ff][:],\
-                                   E_rec_src_solar_nu[ff][:],\
-                                   cos_src_solar_nu[ff][:] )
+                                   t_src_solar_nu,\
+                                   E_rec_src_solar_nu,\
+                                   cos_src_solar_nu )
                         ###atmo
                         ###
                         if atmo_length>1:
                             t_array_atmo, E_rec_array_atmo, cos_array_atmo =\
                                 event_simulation.get_event_array(\
                                    NN_atmo, atmo_length, \
-                                   t_src_atmo_nu[ff][:],\
-                                   E_rec_src_atmo_nu[ff][:],\
-                                   cos_src_atmo_nu[ff][:] )
+                                   t_src_atmo_nu,\
+                                   E_rec_src_atmo_nu,\
+                                   cos_src_atmo_nu )
                         ###dsnb
                         ###
                         if dsnb_length>1:
                             t_array_dsnb, E_rec_array_dsnb, cos_array_dsnb =\
                                 event_simulation.get_event_array(\
                                    NN_dsnb, dsnb_length, \
-                                   t_src_dsnb_nu[ff][:],\
-                                   E_rec_src_dsnb_nu[ff][:],\
-                                   cos_src_dsnb_nu[ff][:] )
+                                   t_src_dsnb_nu,\
+                                   E_rec_src_dsnb_nu,\
+                                   cos_src_dsnb_nu )
     
                     ###stick together in correct order
                     ###
@@ -658,7 +663,7 @@ for mm in range (len(m_DM_array)):
                     if print_info==1:
                         print 'DONE!'
                         print 'evaluate Q for B only'
-    
+                    
                     ###calculate Pb_B
                     ###
                     mu_nu=np.zeros((N_sim,N_Q))
@@ -751,7 +756,10 @@ for mm in range (len(m_DM_array)):
                     prob_nu_S_angle=np.split(prob_nu_S_angle,n_split)
                     prob_nu_B_erec=np.split(prob_nu_B_erec,n_split)
                     prob_nu_S_erec=np.split(prob_nu_S_erec,n_split)
-                
+               
+                    QBrangeAngle = []
+                    QBrangeErec = []
+
                     for ii in range (N_sim*N_Q):
                         time_info=np.log(1.+1.*mu_DM/mu_nu[ii]*\
                                     prob_nu_S_time[ii]/prob_nu_B_time[ii])
@@ -761,28 +769,35 @@ for mm in range (len(m_DM_array)):
                                     prob_nu_S_erec[ii]/prob_nu_B_erec[ii])
                         pre=-mu_DM+n_nu_arr[ii]*(np.log(mu_nu[ii])-\
                                     np.log(mu_DM+mu_nu[ii]))
+                        
                         angle_info=pre+np.sum(time_info)+np.sum(angle_info)
                         erec_info=pre+np.sum(time_info)+np.sum(erec_info)
                         Q_B_angle = -2. * np.array( [angle_info] )
                         Q_B_erec  = -2. * np.array( [erec_info] )
-
+                        
                         if( 0 == FIX_BIN_SIZES_B):
-                            binsQBAngle = np.linspace(\
-                                0.8*np.min(Q_B_angle),1.2*np.max(Q_B_angle),\
-                                N_bins)
-                            binsQBErec = np.linspace(\
-                                0.8*np.min(Q_B_erec),1.2*np.max(Q_B_erec),\
-                                N_bins)
-                            Q_B_angle_histo = np.histogram( Q_B_angle,\
-                                bins = binsQBAngle )[0]
-                            Q_B_erec_histo  = np.histogram( Q_B_erec,\
-                                bins = binsQBErec )[0]
+                            QBrangeAngle.append(Q_B_angle)
+                            QBrangeErec.append(Q_B_erec)
 
-                            FIX_BIN_SIZES_B = 1
-                        Q_B_angle_histo += np.histogram( Q_B_angle,\
-                                bins = binsQBAngle )[0]
-                        Q_B_erec_histo  += np.histogram( Q_B_erec,\
-                                bins = binsQBErec )[0]
+                        else:
+                            Q_B_angle_histo += np.histogram( Q_B_angle,\
+                                    bins = binsQBAngle )[0]
+                            Q_B_erec_histo  += np.histogram( Q_B_erec,\
+                                    bins = binsQBErec )[0]
+
+                    if( 0 == FIX_BIN_SIZES_B):
+                        binsQBAngle = np.linspace(\
+                            min( QBrangeAngle ), max( QBrangeAngle ),\
+                            N_bins)
+                        binsQBErec = np.linspace(\
+                            min(QBrangeErec), max(QBrangeErec),\
+                            N_bins)
+                        Q_B_angle_histo = np.histogram( QBrangeAngle,\
+                            bins = binsQBAngle )[0]
+                        Q_B_erec_histo  = np.histogram( QBrangeErec,\
+                            bins = binsQBErec )[0]
+                        FIX_BIN_SIZES_B = 1
+
 
                     del prob_nu_B_time
                     del prob_nu_S_time
@@ -799,7 +814,6 @@ for mm in range (len(m_DM_array)):
                 #########################
                 ###Now, S+B hypothesis###
                 #########################
-                
                 N_SB=N_DM_exp+N_nu_exp
                 if print_info==1:
                     print 'S+B hypothesis'
@@ -856,9 +870,9 @@ for mm in range (len(m_DM_array)):
                     t_array_DM,E_rec_array_DM,cos_array_DM=[],[],[]
                     while ((len(t_array_DM))<NN_DM):
                         jj=np.random.randint(0,source_length-1,source_length)
-                        t_array_tmp=t_src_DM[ff][jj]
-                        E_rec_array_tmp=E_rec_src_DM[ff][jj]
-                        cos_array_tmp=cos_src_DM[ff][jj]
+                        t_array_tmp=t_src_DM[jj]
+                        E_rec_array_tmp=E_rec_src_DM[jj]
+                        cos_array_tmp=cos_src_DM[jj]
                         t_array_DM=np.concatenate((t_array_DM,t_array_tmp))
                         E_rec_array_DM=np.concatenate(\
                                 (E_rec_array_DM,E_rec_array_tmp))
@@ -884,27 +898,27 @@ for mm in range (len(m_DM_array)):
                             t_array_solar, E_rec_array_solar, cos_array_solar=\
                                 event_simulation.get_event_array(\
                                    NN_solar, solar_length, \
-                                   t_src_solar_nu[ff][:],\
-                                   E_rec_src_solar_nu[ff][:],\
-                                   cos_src_solar_nu[ff][:] )
+                                   t_src_solar_nu,\
+                                   E_rec_src_solar_nu,\
+                                   cos_src_solar_nu )
                         ###atmo
                         ###
                         if atmo_length>1:
                             t_array_atmo, E_rec_array_atmo, cos_array_atmo =\
                                 event_simulation.get_event_array(\
                                    NN_atmo, atmo_length, \
-                                   t_src_atmo_nu[ff][:],\
-                                   E_rec_src_atmo_nu[ff][:],\
-                                   cos_src_atmo_nu[ff][:] )
+                                   t_src_atmo_nu,\
+                                   E_rec_src_atmo_nu,\
+                                   cos_src_atmo_nu )
                         ###dsnb
                         ###
                         if dsnb_length>1:
                             t_array_dsnb, E_rec_array_dsnb, cos_array_dsnb =\
                                 event_simulation.get_event_array(\
                                    NN_dsnb, dsnb_length, \
-                                   t_src_dsnb_nu[ff][:],\
-                                   E_rec_src_dsnb_nu[ff][:],\
-                                   cos_src_dsnb_nu[ff][:] )
+                                   t_src_dsnb_nu,\
+                                   E_rec_src_dsnb_nu,\
+                                   cos_src_dsnb_nu )
 
     
                     ###stick together in correct order
@@ -1145,6 +1159,9 @@ for mm in range (len(m_DM_array)):
                     angle_info_nu,erec_info_nu=[],[]
                     angle_info_DM,erec_info_DM=[],[]
 
+                    QSBrangeAngle = []
+                    QSBrangeErec = []
+
                     for ii in range (N_sim*N_Q):
                         time_info_nu=np.array([np.sum(np.log(\
                                 1.+1.*mu_DM/mu_nu[ii]*prob_nu_S_time[ii]/\
@@ -1158,9 +1175,9 @@ for mm in range (len(m_DM_array)):
                                 1.+1.*mu_DM/mu_nu[ii]*prob_nu_S_erec[ii]/\
                                 prob_nu_B_erec[ii]))])
 
-                        angle_info_nu = time_info + angle_info
+                        angle_info_nu = time_info_nu + angle_info_nu
 
-                        erec_info_nu  = time_info + erec_info
+                        erec_info_nu  = time_info_nu + erec_info_nu
 
                         time_info_DM=np.array([np.sum(np.log(\
                             1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_time[ii]/\
@@ -1183,23 +1200,29 @@ for mm in range (len(m_DM_array)):
 
                         Q_SB_angle = -2. * ( angle_info_DM + angle_info_nu )
                         Q_SB_erec  = -2. * ( erec_info_DM + erec_info_nu )
-                        
+
                         if( 0 == FIX_BIN_SIZES_SB):
-                            binsQSBAngle = np.linspace(\
-                                np.min(Q_SB_angle),np.max(Q_SB_angle),\
-                                N_bins)
-                            binsQSBErec = np.linspace(\
-                                np.min(Q_SB_erec),np.max(Q_SB_erec),\
-                                N_bins)
-                            FIX_BIN_SIZES_SB = 1
-                            Q_SB_angle_histo = np.histogram( Q_SB_angle,\
-                                    bins = binsQSBAngle )[0]
-                            Q_SB_erec_histo  = np.histogram( Q_SB_erec,\
-                                    bins = binsQSBErec )[0]
-                        Q_SB_angle_histo += np.histogram( Q_SB_angle,\
-                                bins = binsQSBAngle )[0]
-                        Q_SB_erec_histo  += np.histogram( Q_SB_erec,\
-                                bins = binsQSBErec )[0]
+                            QSBrangeAngle.append(Q_SB_angle)
+                            QSBrangeErec.append(Q_SB_erec)
+
+                        else:
+                            Q_SB_angle_histo += np.histogram( Q_SB_angle,\
+                                    bins = binsQBAngle )[0]
+                            Q_SB_erec_histo  += np.histogram( Q_SB_erec,\
+                                    bins = binsQBErec )[0]
+
+                    if( 0 == FIX_BIN_SIZES_SB):
+                        binsQSBAngle = np.linspace(\
+                            min(QSBrangeAngle), max(QSBrangeAngle),\
+                            N_bins)
+                        binsQSBErec = np.linspace(\
+                            min(QSBrangeErec), max(QSBrangeErec),\
+                            N_bins)
+                        Q_SB_angle_histo = np.histogram( QSBrangeAngle,\
+                            bins = binsQSBAngle )[0]
+                        Q_SB_erec_histo  = np.histogram( QSBrangeErec,\
+                            bins = binsQSBErec )[0]
+                        FIX_BIN_SIZES_SB = 1
 
                     del prob_DM_B_time
                     del prob_DM_S_time
@@ -1228,7 +1251,12 @@ for mm in range (len(m_DM_array)):
             cl_erec= statistic.get_cl( Q_SB_erec_histo, Q_B_erec_histo,
                                        binsQSBErec, binsQBErec,
                                        N_bins, steps, accuracy )
-
+            print binsQSBAngle
+            print binsQBAngle
+            print ''
+            print binsQSBErec
+            print binsQBErec
+            print ''
             ###write to file
             ###
             f=open(filename_dm,'a')

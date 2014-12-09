@@ -3,6 +3,16 @@ from scipy import *
 import numpy as np
 
 def get_cl(hist_SB, hist_B, Q_grid_SB, Q_grid_B, N_bins, steps, accuracy):
+
+    dqSB = Q_grid_SB[4] - Q_grid_SB[3]
+    dqB = Q_grid_B[4] - Q_grid_B[3]
+
+    normSB = np.sum( dqSB * hist_SB )
+    normB  = np.sum( dqB  * hist_B )
+
+    hist_SB = hist_SB/normSB
+    hist_B = hist_B/normB
+
     Q_min=np.min(Q_grid_SB)
     Q_max=np.max(Q_grid_B)
 
@@ -21,7 +31,8 @@ def get_cl(hist_SB, hist_B, Q_grid_SB, Q_grid_B, N_bins, steps, accuracy):
         return hist_B[id]
 
     def pdf_SB(Qv):
-        if Qv<min(Q_grid_SB) or Qv>max(Q_grid_SB) :
+        if Qv<min(Q_grid_SB) or Qv>max(Q_grid_SB) \
+                             or Qv==max(Q_grid_SB) :
             return 0.
         Qv=np.array([Qv,Qv])
         id=np.digitize(Qv,bins=Q_grid_SB)
