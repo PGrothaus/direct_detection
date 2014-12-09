@@ -4,12 +4,12 @@ from math import pi,log
 import sys
 import ephem as eph
 import random as rnd
-from dm_functions import *
-from neutrino_functions import *
-from constants import *
-from create_lookupfiles import *
-import statistic
-import event_simulation
+from modules.dm_functions import *
+from modules.neutrino_functions import *
+from modules.constants import *
+from modules.create_lookupfiles import *
+import modules.statistic as statistic
+import modules.event_simulation as event_simulation
 import scipy 
 from scipy.interpolate import RectBivariateSpline
 from scipy.interpolate import interp1d,SmoothBivariateSpline
@@ -47,7 +47,7 @@ rnd.seed()
 
 ###flux uncertainties
 ### (extrapolated ten years)
-nu_sigma=np.array([0.00008,0.00001,0.00001])#in fraction of N
+nu_sigma=np.array([0.08,0.1,0.1])#in fraction of N
 
 ###Choose values for simulation
 ###
@@ -57,7 +57,7 @@ accuracy=0.0075         #amount by how much both Q_pdf integrals
                         #are required to be similar when calculating
                         #the overlap
 
-factor=2               #num of loops when generating the toy models/events
+factor=10               #num of loops when generating the toy models/events
 ###For the pdf's:
 ###
 N_tt=10                 #num of lookup tables for DM, i.e. time bins
@@ -70,10 +70,10 @@ N_min_DM=10000          #num of created events to create 2d pdf dark matter
 ###
 source_length=5000      #number of events in event pool
                         #total pool size = factor * source_length
-N_Q=1                  #num of times to vary the fluxes when evaluating Q
+N_Q=20                  #num of times to vary the fluxes when evaluating Q
                         #important for neutrino flux uncertainties:
                         #we have to vary the expectations
-N_sim=1000               #num of pseudo experiments generated in simulation
+N_sim=25               #num of pseudo experiments generated in simulation
                         #total number of pseudo experiments = 
                         #factor * N_sim * N_Q
 
@@ -84,7 +84,7 @@ if mode_max_Mdet==True: gain_direction=True
 ###choose detector set-up
 ### (choose further parameters in constants.py)
 ### (keep observation time unchanged)
-M_det=1.e6#g
+M_det=10.e6#g
 t0=eph.date('2014/01/01')
 t1=eph.date('2015/01/01')
 T_det=(float(t1)-float(t0))
@@ -1251,12 +1251,6 @@ for mm in range (len(m_DM_array)):
             cl_erec= statistic.get_cl( Q_SB_erec_histo, Q_B_erec_histo,
                                        binsQSBErec, binsQBErec,
                                        N_bins, steps, accuracy )
-            print binsQSBAngle
-            print binsQBAngle
-            print ''
-            print binsQSBErec
-            print binsQBErec
-            print ''
             ###write to file
             ###
             f=open(filename_dm,'a')
