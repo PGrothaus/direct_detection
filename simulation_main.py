@@ -57,7 +57,7 @@ accuracy=0.0075         #amount by how much both Q_pdf integrals
                         #are required to be similar when calculating
                         #the overlap
 
-factor=10               #num of loops when generating the toy models/events
+factor=1               #num of loops when generating the toy models/events
 ###For the pdf's:
 ###
 N_tt=10                 #num of lookup tables for DM, i.e. time bins
@@ -70,13 +70,14 @@ N_min_DM=10000          #num of created events to create 2d pdf dark matter
 ###
 source_length=5000      #number of events in event pool
                         #total pool size = factor * source_length
-N_Q = 20                #num of times to vary the fluxes when evaluating Q
+N_Q = 1                #num of times to vary the fluxes when evaluating Q
                         #important for neutrino flux uncertainties:
                         #we have to vary the expectations
 N_sim = 250            #num of pseudo experiments generated in simulation
                         #total number of pseudo experiments = 
                         #factor * N_sim * N_Q
 
+SENSITIVITY_SCAN = 0
 
 mode_max_Mdet=False
 if mode_max_Mdet==True: gain_direction=True
@@ -84,7 +85,14 @@ if mode_max_Mdet==True: gain_direction=True
 ###choose detector set-up
 ### (choose further parameters in constants.py)
 ### (keep observation time unchanged)
-M_det=10.e6#g
+M_det0=10.e6#g
+
+if(1 == SENSITIVITY_SCAN):
+    M_det_array = np.array( [50.] )
+    M_det0 = 1.e6
+else:
+    M_det_array = np.array( [M_det0] )
+
 t0=eph.date('2014/01/01')
 t1=eph.date('2015/01/01')
 T_det=(float(t1)-float(t0))
@@ -92,7 +100,7 @@ t1_f=float(t1)-float(t0)
 
 ###specify mass and cross section range
 ###
-m_DM_array=np.array([5., 6., 8., 10., 30., 100., 300., 1000.])
+m_DM_array=np.array([6., 10.])
 sigma=np.logspace(-40,-52, 120)
 filename_dm='testrun.txt'
 filename_dm = 'output/' + filename_dm
@@ -116,7 +124,7 @@ if test==0:
     print '####################################'
     print '#detector specifications:'
     print '#mass target material: A=', A,'(N',N,' Z',Z,')'
-    print '#detector mass = ',M_det/1000.,'kg'
+    print '#detector mass = ',M_det0/1000.,'kg'
     print '#exposure time = ', T_det,' live days'
     print '#lower threshold: ',E_thr
     print '#upper threshold: ',upper_threshold
@@ -125,28 +133,27 @@ if test==0:
     print 'NEUTRINOS'
     print ''
     print 'creating lookup tables...'
-    create_all_neutrino_lookuptables(Npoints=500,Nsteps=1000)
+    #create_all_neutrino_lookuptables(Npoints=200,Nsteps=500)
     print '         DONE!'
     print ''
     print 'calculating expected neutrino events...'
 
 ###calculate number of expected events
 ### (assuming flux at central value)
-
 time_array_nu,rate_array_nu,dt_nu,N_sun_arr,N_atmo_arr,N_dsnb_arr=\
-    tot_rate_nu(M_det,E_thr,t0,t1,steps=100)
+    tot_rate_nu(M_det0,E_thr,t0,t1,steps=100)
 
 N_sun0=np.sum(N_sun_arr)
 N_atmo0=np.sum(N_atmo_arr)
 N_dsnb0=np.sum(N_dsnb_arr)
-mu_nu_0=N_sun0+N_atmo0+N_dsnb0
-N_nu0=mu_nu_0
-N_tot=mu_nu_0
+mu_nu_ini=N_sun0+N_atmo0+N_dsnb0
+N_nu0=mu_nu_ini
+N_tot=mu_nu_ini
 
 print N_tot
 
-N_nu_avg=int(mu_nu_0)
-rest=mu_nu_0-N_nu_avg
+N_nu_avg=int(mu_nu_ini)
+rest=mu_nu_ini-N_nu_avg
 if rest>0.5:
     N_nu_avg+=1
 if test==1:
@@ -295,30 +302,13 @@ count=0
 
 ###loop over DM mass
 ###
-s_int=0
+s_int = 0
 for mm in range (len(m_DM_array)):
+    if( 1 == SENSITIVITY_SCAN):
+        s_int = 0
     print ''
+    print 'Going to next dark matter mass!'
     print '   ',m_DM_array[mm],'GeV'
-
-    ###calculate the general annual modulation for that DM mass
-    ###
-    print 'calculating expected dark matter events...'
-    time_array_DM,rate_array_DM,N_DM0,dt_DM = \
-                    tot_rate_dm(M_det,E_thr,m_DM_array[mm],t0,t1,steps=100)
-    print '         DONE!   (depends on cross section)'
-
-    if N_DM0==0:
-        continue
-
-    bin_prob_DM_t=rate_array_DM/N_DM0
-    acc_prob_DM_t=np.cumsum(bin_prob_DM_t)
-    rnd_DM_t=interp1d(acc_prob_DM_t,time_array_DM,kind='linear')
-    rate_array_DM[0]=rate_array_DM[1]
-    pdf_DM_t=interp1d(time_array_DM,rate_array_DM/N_DM0/dt_DM,kind='linear')
-
-    if test==1:
-        N_DM_exp=10
-
     ###get 2d pdf for recoil energy and cos_theta_sun for DM
     ###
     H_out=np.zeros((N_erec-1,N_theta-1))
@@ -326,7 +316,7 @@ for mm in range (len(m_DM_array)):
     t1_f=float(t1)-t0_f
     t0_f=0.
     t_edges=np.linspace(t0_f,t1_f,N_tt)
-
+ 
     if channel_Erec==True:
         if test==0:
             print ''
@@ -350,7 +340,7 @@ for mm in range (len(m_DM_array)):
                     f.close()
                     f=open(basenamepdf+'_DM_'+str(m_DM_array[mm])+'_'+\
                                               str(hh)+'.txt','a')
-
+ 
                     HHnz=np.where(H_out[hh]>0,H_out[hh],10.)
                     HHmin=np.min(HHnz)
                     for ii in range (len(x_edge)):
@@ -375,7 +365,7 @@ for mm in range (len(m_DM_array)):
                 f_ipl=RectBivariateSpline(x_edge,y_edge,\
                                           pdf_val/norm_Psb,kx=1,ky=1)
                 f_array.append(f_ipl)
-
+ 
             ###marginalise over the angle
             ### (if only recoil information should be used)
             if channel_angle==False or gain_direction==True:
@@ -406,7 +396,7 @@ for mm in range (len(m_DM_array)):
             #plt.plot(ee,f_array_noangle[6](ee),'ro')
             #plt.plot(ee,Pb_noangle_ipl(ee),'bo')
             #plt.show()
-
+ 
             #name=basenamepdf+'_DM_'+str(m_DM_array[mm])+'_'+str(8)+'.txt'
                 #data=np.loadtxt(name)
             #x_val=data[:,0]
@@ -418,7 +408,7 @@ for mm in range (len(m_DM_array)):
             #   plt.plot(ee[ii],f_array[8](ee[ii],thth),'ro')
             #plt.yscale('log')
             #plt.show()
-
+ 
     if test==1:
         t0_f=float(t0)
         t1_f=float(t1)-t0_f
@@ -435,855 +425,886 @@ for mm in range (len(m_DM_array)):
             pdf_dm=np.array([pdf_dm[0],pdf_dm[2]])
             f_ipl=interp1d(np.array([E_thr,upper_threshold]),pdf_dm)
             f_array_noangle.append(f_ipl)
-
+ 
         kk=0
         pdf_array=5./D_time*np.ones(len(time_array_nu))
         pdf_DM_t=interp1d(time_array_DM,pdf_array,kind='linear')
 
-
-    if test==1:
-        N_DM=10
-        n_source_DM=N_DM*np.ones(N_sim,dtype=int)
-        E_rec_src_DM=np.ones((factor,N_sim*N_DM))*25.
-        t_src_DM=np.ones((factor,N_sim*N_DM))*100.
-        cos_src_DM=np.ones((factor,N_sim*N_DM))*0.1
-        src_DM=np.array(zip(t_src_DM,E_rec_src_DM,cos_src_DM))
-    print '         DONE!'
-
-    if test==0:
-        print ''
-        print 'loop over cross section...'
-        print ''
-        print "DM_mass        sigma_SI       N_dm         N_nu"
-
-    ###loop over cross section
-    ###
-
-    #for ss in range (len(sigma)):
-    scan=True
-    waszero=False
-    wasbig=False
-    mem1=0
-    mem2=0
-    scanned=np.array([])
-
-    while scan==True:
-        jump=False
-        if s_int<0:
-            break
-
-        if s_int in scanned:
-            jump=True
-        
-        if jump==False:
-            ss=s_int
+    for mass_N in M_det_array:
+        if 1 == SENSITIVITY_SCAN:
+            M_det = M_det0 * mass_N / mu_nu_ini
+            time_array_nu,rate_array_nu,dt_nu,N_sun_arr,N_atmo_arr,N_dsnb_arr=\
+                tot_rate_nu(M_det,E_thr,t0,t1,steps=100)
             
-            ###initialise arrays
-            ### 
-            Q_B=[]
-            Q_SB=[]
-            t_array_SB=[]
+            N_sun0=np.sum(N_sun_arr)
+            N_atmo0=np.sum(N_atmo_arr)
+            N_dsnb0=np.sum(N_dsnb_arr)
+            mu_nu_0=N_sun0+N_atmo0+N_dsnb0
+            N_nu0=mu_nu_0
+            N_tot=mu_nu_0
+            
+            print ''
+            print 'Going to next detector mass!'
+            print 'expected number of neutrino events:',N_tot
+            
+            N_nu_avg=int(mu_nu_0)
+            rest=mu_nu_0-N_nu_avg
+            if rest>0.5:
+                N_nu_avg+=1
+                    
+            sun_ratio=N_sun0/N_tot
+            atmo_ratio=N_atmo0/N_tot
+            dsnb_ratio=N_dsnb0/N_tot
+            ratio_array=np.array([sun_ratio,atmo_ratio,dsnb_ratio])
+            N_nu_arr=np.array([N_sun0,N_atmo0,N_dsnb0])
+            mu_nu=N_tot
+
+        else:
+            M_det = M_det0
+        ###calculate the general annual modulation for that DM mass
+        ###
+        print 'calculating expected dark matter events...'
+        time_array_DM,rate_array_DM,N_DM0,dt_DM = \
+                        tot_rate_dm(M_det,E_thr,m_DM_array[mm],t0,t1,steps=100)
+        print '         DONE!   (depends on cross section)'
+        if N_DM0==0:
+            continue
+        bin_prob_DM_t=rate_array_DM/N_DM0
+        acc_prob_DM_t=np.cumsum(bin_prob_DM_t)
+        rnd_DM_t=interp1d(acc_prob_DM_t,time_array_DM,kind='linear')
+        rate_array_DM[0]=rate_array_DM[1]
+        pdf_DM_t=interp1d(time_array_DM,rate_array_DM/N_DM0/dt_DM,kind='linear')
     
-            ###calculate expected dark matter events by multiplying with sigma
-            ###
-            if test==0:
-                N_DM1=N_DM0*sigma[ss]
-                N_DM=int(N_DM1)
-                rest=N_DM1-N_DM
-                if rest>0.5:
-                    N_DM+=+1
+        if test==0:
+            print 'loop over cross section...'
+            print ''
+            print "DM_mass        sigma_SI       N_dm         N_nu"
+        ###loop over cross section
+        ###
+        scan=True
+        waszero=False
+        wasbig=False
+        mem1=0
+        mem2=0
+        scanned=np.array([])
     
-            if N_DM<1. and waszero==False and wasbig==False:
-                s_int-=1 
-                continue
-    
-            if N_DM<1:
+        while scan==True:
+            jump=False
+            if s_int<0:
                 break
     
-            if N_DM>isoevents*N_nu_avg:
-                s_int+=1
-                continue
-    
-            N_DM_exp=N_DM
-            mu_DM=N_DM_exp
-    
-            print ("%2E   %2E   %i        %i " % (m_DM_array[mm],\
-                                                  sigma[ss],N_DM_exp,N_nu_avg))
-    
-            Q_B_angle,Q_B_erec=[],[]
-            Q_SB_angle,Q_SB_erec=[],[]
-    
-            angle_info_DM,erec_info_DM=[],[]
-
-            binsQBAngle = np.array( [] )
-            binsQBErec  = np.array( [] )
-            binsQSBAngle = np.array( [] )
-            binsQSBErec = np.array( [] )
-            FIX_BIN_SIZES_B = 0
-            FIX_BIN_SIZES_SB = 0
-
-            for ff in range (factor):
-                ###simulate neutrino events
-                ###
-                t_src_solar_nu, E_rec_src_solar_nu, cos_src_solar_nu = \
-                    event_simulation.simulate_events( 0, N_sun0, N_sim,\
-                    source_length, rnd_B_t)
-                t_src_atmo_nu, E_rec_src_atmo_nu, cos_src_atmo_nu = \
-                    event_simulation.simulate_events(1, N_atmo0, N_sim,\
-                    source_length, lin_B_t )
-                t_src_dsnb_nu, E_rec_src_dsnb_nu, cos_src_dsnb_nu = \
-                    event_simulation.simulate_events(2, N_dsnb0, N_sim,\
-                    source_length, lin_B_t )
-                ###simulate DM events
-                ###
-                t_src_DM, E_rec_src_DM, cos_src_DM = \
-                    event_simulation.simulate_dm_events( m_DM_array[mm],\
-                                    source_length, t0, t1, N_tt, rnd_DM_t)
-
-                #######################
-                ###B only hypothesis###
-                #######################
-                N_nu_exp=N_sun0+N_atmo0+N_dsnb0
-    
-                ratio_solar=1.*N_sun0/N_nu_exp
-                ratio_atmo=1.*N_atmo0/N_nu_exp
-                ratio_dsnb=1.*N_dsnb0/N_nu_exp
-    
-                N_nu=N_nu_exp
-                n_nu_arr=np.random.poisson(N_nu,N_sim)
-                NN_nu=np.sum(n_nu_arr)
-    
-                if print_info==1:
-                    print 'B only hypothesis'
-                    print ''
-                    print '(mu_DM_0, mu_nu_0) ~ (center of Poisson) '
-                    print N_DM_exp,N_nu_exp
-                    print ''
-                    print 'n_nu_arr (drawn from the Poisson)'
-                    print n_nu_arr[:12]
-                    print ''
-                    print 'get neutrino events...'          
+            if s_int in scanned:
+                jump=True
+            
+            if jump==False:
+                ss=s_int
+                
+                ###initialise arrays
+                ### 
+                Q_B=[]
+                Q_SB=[]
+                t_array_SB=[]
         
-                r_solar=ratio_solar*np.ones(NN_nu)
-                r_atmo=ratio_atmo*np.ones(NN_nu)
-                r_dsnb=ratio_dsnb*np.ones(NN_nu)
-    
-                ###split up in solar, atmo and dsnb neutrinos
+                ###calculate expected dark matter events by multiplying with sigma
                 ###
-                r_array=np.random.uniform(0.,1.,NN_nu)
-                N_solar=np.where(r_array<r_solar,1,0)
-                N_dsnb=np.where(r_array>(r_solar+r_atmo),1,0)
-                N_atmo=1-N_solar-N_dsnb 
-                NN_solar=np.sum(N_solar)
-                NN_atmo=np.sum(N_atmo)
-                NN_dsnb=np.sum(N_dsnb)
-                NN_tot=NN_solar+NN_atmo+NN_dsnb
+                if test==0:
+                    N_DM1=N_DM0*sigma[ss]
+                    N_DM=int(N_DM1)
+                    rest=N_DM1-N_DM
+                    if rest>0.5:
+                        N_DM+=+1
+        
+                if N_DM<1. and waszero==False and wasbig==False:
+                    s_int-=1 
+                    continue
+        
+                if N_DM<1:
+                    break
+        
+                if N_DM>isoevents*N_nu_avg:
+                    s_int+=1
+                    continue
+        
+                N_DM_exp=N_DM
+                mu_DM=N_DM_exp
+        
+                print ("%2E   %2E   %i        %i " % (m_DM_array[mm],\
+                                                      sigma[ss],N_DM_exp,N_nu_avg))
+        
+                Q_B_angle,Q_B_erec=[],[]
+                Q_SB_angle,Q_SB_erec=[],[]
+        
+                angle_info_DM,erec_info_DM=[],[]
     
-                #print 1.*NN_solar/NN_tot,1.*NN_atmo/NN_tot,1.*NN_dsnb/NN_tot
+                binsQBAngle = np.array( [] )
+                binsQBErec  = np.array( [] )
+                binsQSBAngle = np.array( [] )
+                binsQSBErec = np.array( [] )
+                FIX_BIN_SIZES_B = 0
+                FIX_BIN_SIZES_SB = 0
     
-                sample_prob_nu_B=np.zeros(N_sim)
-                t_array_solar,t_array_atmo,t_array_dsnb=[],[],[]
-                E_rec_array_solar,E_rec_array_atmo,E_rec_array_dsnb=[],[],[]
-                cos_array_solar,cos_array_atmo,cos_array_dsnb=[],[],[]
-    
-                ###simulate neutrino events
-                ###
-                if channel_time==True:
-    
-                    prob_nu_B=np.zeros(NN_nu)
-    
-                    ###if energy information is used, do proper simulation
+                for ff in range (factor):
+                    ###simulate neutrino events
                     ###
-                    if channel_Erec==True:
-                        ###solar
-                        ###
-                        solar_length=max(10,min(int(1.*N_sun0*N_sim),\
-                                         source_length))
-                        atmo_length=max(10,min(int(1.*N_atmo0*N_sim),\
-                                         source_length))
-                        dsnb_length=max(10,min(int(1.*N_dsnb0*N_sim),\
-                                         source_length))
-                        if solar_length>1:
-                            t_array_solar, E_rec_array_solar, cos_array_solar=\
-                                event_simulation.get_event_array(\
-                                   NN_solar, solar_length, \
-                                   t_src_solar_nu,\
-                                   E_rec_src_solar_nu,\
-                                   cos_src_solar_nu )
-                        ###atmo
-                        ###
-                        if atmo_length>1:
-                            t_array_atmo, E_rec_array_atmo, cos_array_atmo =\
-                                event_simulation.get_event_array(\
-                                   NN_atmo, atmo_length, \
-                                   t_src_atmo_nu,\
-                                   E_rec_src_atmo_nu,\
-                                   cos_src_atmo_nu )
-                        ###dsnb
-                        ###
-                        if dsnb_length>1:
-                            t_array_dsnb, E_rec_array_dsnb, cos_array_dsnb =\
-                                event_simulation.get_event_array(\
-                                   NN_dsnb, dsnb_length, \
-                                   t_src_dsnb_nu,\
-                                   E_rec_src_dsnb_nu,\
-                                   cos_src_dsnb_nu )
-    
-                    ###stick together in correct order
+                    t_src_solar_nu, E_rec_src_solar_nu, cos_src_solar_nu = \
+                        event_simulation.simulate_events( 0, N_sun0, N_sim,\
+                        source_length, rnd_B_t)
+                    t_src_atmo_nu, E_rec_src_atmo_nu, cos_src_atmo_nu = \
+                        event_simulation.simulate_events(1, N_atmo0, N_sim,\
+                        source_length, lin_B_t )
+                    t_src_dsnb_nu, E_rec_src_dsnb_nu, cos_src_dsnb_nu = \
+                        event_simulation.simulate_events(2, N_dsnb0, N_sim,\
+                        source_length, lin_B_t )
+                    ###simulate DM events
                     ###
-                    E_rec_nu=np.zeros(NN_nu)
-                    cos_nu=np.zeros(NN_nu)
-                    t_nu=np.zeros(NN_nu)
+                    t_src_DM, E_rec_src_DM, cos_src_DM = \
+                        event_simulation.simulate_dm_events( m_DM_array[mm],\
+                                        source_length, t0, t1, N_tt, rnd_DM_t)
     
-                    if solar_length>1:
-                        ij=np.nonzero(N_solar>0.5)
-                        E_rec_nu[ij]=E_rec_array_solar
-                        cos_nu[ij]=cos_array_solar
-                        t_nu[ij]=t_array_solar
-                    if atmo_length>1:
-                        ij=np.nonzero(N_atmo>0.5)
-                        E_rec_nu[ij]=E_rec_array_atmo
-                        cos_nu[ij]=cos_array_atmo
-                        t_nu[ij]=t_array_atmo
-                    if dsnb_length>1:
-                        ij=np.nonzero(N_dsnb>0.5)
-                        E_rec_nu[ij]=E_rec_array_dsnb
-                        cos_nu[ij]=cos_array_dsnb
-                        t_nu[ij]=t_array_dsnb
-    
-                    del t_array_solar
-                    del t_array_atmo
-                    del t_array_dsnb
-                    del E_rec_array_solar
-                    del E_rec_array_atmo
-                    del E_rec_array_dsnb
-                    del cos_array_solar
-                    del cos_array_atmo
-                    del cos_array_dsnb
-    
+                    #######################
+                    ###B only hypothesis###
+                    #######################
+                    N_nu_exp=N_sun0+N_atmo0+N_dsnb0
+        
+                    ratio_solar=1.*N_sun0/N_nu_exp
+                    ratio_atmo=1.*N_atmo0/N_nu_exp
+                    ratio_dsnb=1.*N_dsnb0/N_nu_exp
+        
+                    N_nu=N_nu_exp
+                    n_nu_arr=np.random.poisson(N_nu,N_sim)
+                    NN_nu=np.sum(n_nu_arr)
+        
                     if print_info==1:
-                        print 'DONE!'
-                        print 'evaluate Q for B only'
+                        print 'B only hypothesis'
+                        print ''
+                        print '(mu_DM_0, mu_nu_0) ~ (center of Poisson) '
+                        print N_DM_exp,N_nu_exp
+                        print ''
+                        print 'n_nu_arr (drawn from the Poisson)'
+                        print n_nu_arr[:12]
+                        print ''
+                        print 'get neutrino events...'          
+            
+                    r_solar=ratio_solar*np.ones(NN_nu)
+                    r_atmo=ratio_atmo*np.ones(NN_nu)
+                    r_dsnb=ratio_dsnb*np.ones(NN_nu)
+        
+                    ###split up in solar, atmo and dsnb neutrinos
+                    ###
+                    r_array=np.random.uniform(0.,1.,NN_nu)
+                    N_solar=np.where(r_array<r_solar,1,0)
+                    N_dsnb=np.where(r_array>(r_solar+r_atmo),1,0)
+                    N_atmo=1-N_solar-N_dsnb 
+                    NN_solar=np.sum(N_solar)
+                    NN_atmo=np.sum(N_atmo)
+                    NN_dsnb=np.sum(N_dsnb)
+                    NN_tot=NN_solar+NN_atmo+NN_dsnb
+        
+                    #print 1.*NN_solar/NN_tot,1.*NN_atmo/NN_tot,1.*NN_dsnb/NN_tot
+        
+                    sample_prob_nu_B=np.zeros(N_sim)
+                    t_array_solar,t_array_atmo,t_array_dsnb=[],[],[]
+                    E_rec_array_solar,E_rec_array_atmo,E_rec_array_dsnb=[],[],[]
+                    cos_array_solar,cos_array_atmo,cos_array_dsnb=[],[],[]
+        
+                    ###simulate neutrino events
+                    ###
+                    if channel_time==True:
+        
+                        prob_nu_B=np.zeros(NN_nu)
+        
+                        ###if energy information is used, do proper simulation
+                        ###
+                        if channel_Erec==True:
+                            ###solar
+                            ###
+                            solar_length=max(10,min(int(1.*N_sun0*N_sim),\
+                                             source_length))
+                            atmo_length=max(10,min(int(1.*N_atmo0*N_sim),\
+                                             source_length))
+                            dsnb_length=max(10,min(int(1.*N_dsnb0*N_sim),\
+                                             source_length))
+                            if solar_length>1:
+                                t_array_solar, E_rec_array_solar, cos_array_solar=\
+                                    event_simulation.get_event_array(\
+                                       NN_solar, solar_length, \
+                                       t_src_solar_nu,\
+                                       E_rec_src_solar_nu,\
+                                       cos_src_solar_nu )
+                            ###atmo
+                            ###
+                            if atmo_length>1:
+                                t_array_atmo, E_rec_array_atmo, cos_array_atmo =\
+                                    event_simulation.get_event_array(\
+                                       NN_atmo, atmo_length, \
+                                       t_src_atmo_nu,\
+                                       E_rec_src_atmo_nu,\
+                                       cos_src_atmo_nu )
+                            ###dsnb
+                            ###
+                            if dsnb_length>1:
+                                t_array_dsnb, E_rec_array_dsnb, cos_array_dsnb =\
+                                    event_simulation.get_event_array(\
+                                       NN_dsnb, dsnb_length, \
+                                       t_src_dsnb_nu,\
+                                       E_rec_src_dsnb_nu,\
+                                       cos_src_dsnb_nu )
+        
+                        ###stick together in correct order
+                        ###
+                        E_rec_nu=np.zeros(NN_nu)
+                        cos_nu=np.zeros(NN_nu)
+                        t_nu=np.zeros(NN_nu)
+        
+                        if solar_length>1:
+                            ij=np.nonzero(N_solar>0.5)
+                            E_rec_nu[ij]=E_rec_array_solar
+                            cos_nu[ij]=cos_array_solar
+                            t_nu[ij]=t_array_solar
+                        if atmo_length>1:
+                            ij=np.nonzero(N_atmo>0.5)
+                            E_rec_nu[ij]=E_rec_array_atmo
+                            cos_nu[ij]=cos_array_atmo
+                            t_nu[ij]=t_array_atmo
+                        if dsnb_length>1:
+                            ij=np.nonzero(N_dsnb>0.5)
+                            E_rec_nu[ij]=E_rec_array_dsnb
+                            cos_nu[ij]=cos_array_dsnb
+                            t_nu[ij]=t_array_dsnb
+        
+                        del t_array_solar
+                        del t_array_atmo
+                        del t_array_dsnb
+                        del E_rec_array_solar
+                        del E_rec_array_atmo
+                        del E_rec_array_dsnb
+                        del cos_array_solar
+                        del cos_array_atmo
+                        del cos_array_dsnb
+        
+                        if print_info==1:
+                            print 'DONE!'
+                            print 'evaluate Q for B only'
+                        
+                        ###calculate Pb_B
+                        ###
+                        mu_nu=np.zeros((N_sim,N_Q))
+                        for ii in range (9):
+                            if N_sun_arr[ii]>0.:
+                                N_nu_solar=np.random.normal(N_sun_arr[ii],\
+                                        nu_sigma[0]*N_sun_arr[ii],(N_sim,N_Q))
+                                N_nu_solar=np.where(N_nu_solar<0.,0.,N_nu_solar)
+                                mu_nu+=N_nu_solar
+                        for ii in range (4):
+                            if N_atmo_arr[ii]>0.:
+                                N_nu_atmo=np.random.normal(N_atmo_arr[ii],\
+                                        nu_sigma[1]*N_atmo_arr[ii],(N_sim,N_Q))
+                                N_nu_atmo=np.where(N_nu_atmo<0.,0.,N_nu_atmo)
+                                mu_nu+=N_nu_atmo
+                        for ii in range (3):
+                            if N_dsnb_arr[ii]>0.:
+                                N_nu_dsnb=np.random.normal(N_dsnb_arr[ii],\
+                                        nu_sigma[2]*N_dsnb_arr[ii],(N_sim,N_Q))
+                                N_nu_dsnb=np.where(N_nu_dsnb<0.,0.,N_nu_dsnb)
+                                mu_nu+=N_nu_dsnb
+                        
+                        if test==1:
+                            n_nu_arr=N_nu_avg*np.ones(N_sim,dtype=int)
+        
+                            E_rec_nu=2.*E_thr*np.ones(N_sim*N_nu_avg)
+                            cos_nu=0.5*np.ones(N_sim*N_nu_avg)
+                            t_nu=100.*np.ones(N_sim*N_nu_avg)
+                            mu_nu=N_nu_avg*np.ones((N_sim,N_Q))
+                            NN_nu=N_nu_avg*N_sim
+        
+                        mu_nu=np.hstack(mu_nu)
+                        n_nu_arr=np.tile(n_nu_arr,N_Q)
+        
                     
-                    ###calculate Pb_B
+                    if channel_time==True:
+                        if channel_Erec==True:
+                            dif=np.zeros((len(t_edges),len(t_nu)))
+                            for ii in range(len(t_edges)):
+                                dif[ii]=abs(t_edges[ii]-t_nu)
+                            dif=np.reshape(dif,(len(t_nu),len(t_edges)))
+                            id1_nu=np.argmin(dif,axis=1)
+                            t0_nu=t_edges[id1_nu]
+                            id2_nu=np.where(id1_nu==N_tt-1,id1_nu-1,0)
+                            id2_nu=np.where(id1_nu==0,1,id2_nu)
+                            
+                            id2_nu_tmp1=np.where(id2_nu==0,id1_nu+1,id2_nu)
+                            t1_nu=t_edges[id2_nu_tmp1]
+                            
+                            id2_nu_tmp2=np.where(id2_nu==0,id1_nu-1,id2_nu)
+                            t2_nu=t_edges[id2_nu_tmp2]
+                            
+                            id2_nu=np.where(abs(t1_nu-t_nu)>abs(t2_nu-t_nu),\
+                                                id2_nu_tmp2,id2_nu)
+                            id2_nu=np.where(abs(t1_nu-t_nu)<abs(t2_nu-t_nu),\
+                                                id2_nu_tmp1,id2_nu)
+                            d1=abs(t_nu-t_edges[id1_nu])
+                            d2=abs(t_nu-t_edges[id2_nu])
+                            pdf1,pdf2=np.zeros(NN_nu),np.zeros(NN_nu)
+                            for ii in range (N_tt):
+                                pdf1=np.where(id1_nu==ii,\
+                                        f_array[ii].ev(E_rec_nu,cos_nu),pdf1)
+                                pdf2=np.where(id2_nu==ii,\
+                                        f_array[ii].ev(E_rec_nu,cos_nu),pdf2)
+                            prob_nu_B_angle=Pb_ipl.ev(E_rec_nu,cos_nu)
+                            prob_nu_S_angle=pdf1+d1/(d1+d2)*(pdf2-pdf1)
+                            for ii in range (N_tt):
+                                pdf1=np.where(id1_nu==ii,\
+                                        f_array_noangle[ii](E_rec_nu),pdf1)
+                                pdf2=np.where(id2_nu==ii,\
+                                        f_array_noangle[ii](E_rec_nu),pdf2)
+                            prob_nu_B_erec=Pb_noangle_ipl(E_rec_nu)
+                            prob_nu_S_erec=pdf1+d1/(d1+d2)*(pdf2-pdf1)
+        
+                        prob_nu_S_time=pdf_DM_t(t_nu)
+                        prob_nu_B_time=pdf_nu_t(t_nu)
+        
+                        prob_nu_S_time=np.tile(prob_nu_S_time,N_Q)
+                        prob_nu_B_time=np.tile(prob_nu_B_time,N_Q)
+                        prob_nu_S_angle=np.tile(prob_nu_S_angle,N_Q)
+                        prob_nu_B_angle=np.tile(prob_nu_B_angle,N_Q)
+                        prob_nu_S_erec=np.tile(prob_nu_S_erec,N_Q)
+                        prob_nu_B_erec=np.tile(prob_nu_B_erec,N_Q)
+        
+                        n_split=np.cumsum(n_nu_arr)
+                        n_split=np.delete(n_split,-1)
+                        prob_nu_B_time=np.split(prob_nu_B_time,n_split)
+                        prob_nu_S_time=np.split(prob_nu_S_time,n_split)
+                        prob_nu_B_angle=np.split(prob_nu_B_angle,n_split)
+                        prob_nu_S_angle=np.split(prob_nu_S_angle,n_split)
+                        prob_nu_B_erec=np.split(prob_nu_B_erec,n_split)
+                        prob_nu_S_erec=np.split(prob_nu_S_erec,n_split)
+                   
+                        QBrangeAngle = []
+                        QBrangeErec = []
+    
+                        for ii in range (N_sim*N_Q):
+                            time_info=np.log(1.+1.*mu_DM/mu_nu[ii]*\
+                                        prob_nu_S_time[ii]/prob_nu_B_time[ii])
+                            angle_info=np.log(1.+1.*mu_DM/mu_nu[ii]*\
+                                        prob_nu_S_angle[ii]/prob_nu_B_angle[ii])
+                            erec_info=np.log(1.+1.*mu_DM/mu_nu[ii]*\
+                                        prob_nu_S_erec[ii]/prob_nu_B_erec[ii])
+                            pre=-mu_DM+n_nu_arr[ii]*(np.log(mu_nu[ii])-\
+                                        np.log(mu_DM+mu_nu[ii]))
+                            
+                            angle_info=pre+np.sum(time_info)+np.sum(angle_info)
+                            erec_info=pre+np.sum(time_info)+np.sum(erec_info)
+                            Q_B_angle = -2. * np.array( [angle_info] )
+                            Q_B_erec  = -2. * np.array( [erec_info] )
+                            
+                            if( 0 == FIX_BIN_SIZES_B):
+                                QBrangeAngle.append(Q_B_angle)
+                                QBrangeErec.append(Q_B_erec)
+    
+                            else:
+                                Q_B_angle_histo += np.histogram( Q_B_angle,\
+                                        bins = binsQBAngle )[0]
+                                Q_B_erec_histo  += np.histogram( Q_B_erec,\
+                                        bins = binsQBErec )[0]
+    
+                        if( 0 == FIX_BIN_SIZES_B):
+                            binsQBAngle = np.linspace(\
+                                min( QBrangeAngle ), max( QBrangeAngle ),\
+                                N_bins)
+                            binsQBErec = np.linspace(\
+                                min(QBrangeErec), max(QBrangeErec),\
+                                N_bins)
+                            Q_B_angle_histo = np.histogram( QBrangeAngle,\
+                                bins = binsQBAngle )[0]
+                            Q_B_erec_histo  = np.histogram( QBrangeErec,\
+                                bins = binsQBErec )[0]
+                            FIX_BIN_SIZES_B = 1
+    
+    
+                        del prob_nu_B_time
+                        del prob_nu_S_time
+                        del prob_nu_B_angle
+                        del prob_nu_S_angle
+                        del prob_nu_B_erec
+                        del prob_nu_S_erec
+                        del Q_B_angle
+                        del Q_B_erec
+        
+                        if print_info==1:
+                            print 'DONE!'
+        
+                    #########################
+                    ###Now, S+B hypothesis###
+                    #########################
+                    N_SB=N_DM_exp+N_nu_exp
+                    if print_info==1:
+                        print 'S+B hypothesis'
+                        print ''
+                        print 'N_DM_exp, N_nu_exp, N_SB'
+                        print N_DM_exp,N_nu_exp
+                        print ''
+                        print 'get neutrino events'
+                        
+                    NN_SB=np.random.poisson(N_SB,N_sim)
+                    ratio_solar=1.*N_sun0/N_SB
+                    ratio_atmo=1.*N_atmo0/N_SB
+                    ratio_dsnb=1.*N_dsnb0/N_SB
+                    ratio_dm=1.*N_DM/N_SB
+                    
+                    ###get number of DM and neutrino events
+                    ###
+                    n_arr=np.sum(NN_SB)
+                    r_dm=ratio_dm*np.ones(n_arr)
+                    r_solar=ratio_solar*np.ones(n_arr)
+                    r_atmo=ratio_atmo*np.ones(n_arr)
+                    r_dsnb=ratio_dsnb*np.ones(n_arr)
+        
+                    ###split up in solar, atmo and dsnb neutrinos
+                    ###
+                    r_array=np.random.uniform(0.,1.,n_arr)
+                    N_solar=np.where(r_array<r_solar,1,0)
+                    N_dm=np.where(r_array>(r_solar+r_atmo+r_dsnb),1,0)
+                    N_atmo=1-N_solar-N_dm
+                    N_atmo=np.random.uniform(0.,r_atmo+r_dsnb)*N_atmo
+                    N_atmo=np.where(N_atmo>r_dsnb,1,0)
+                    N_dsnb=1-N_dm-N_solar-N_atmo
+                    NN_solar=np.sum(N_solar)
+                    NN_atmo=np.sum(N_atmo)
+                    NN_dsnb=np.sum(N_dsnb)
+                    NN_DM=np.sum(N_dm)
+                    NN_tot=NN_solar+NN_atmo+NN_dsnb+NN_DM
+                    NN_nu=NN_tot-NN_DM
+        
+                    ###simulate DM events
+                    ###
+                    tmp=np.cumsum(NN_SB)
+                    i_max=len(tmp)
+                    tmp=np.split(N_dm,tmp)
+                    n_array_DM=np.zeros(i_max,dtype=int)
+                    for ii in range (i_max):
+                        n_array_DM[ii]=int(sum(tmp[ii]))
+                    n_nu_arr=NN_SB-n_array_DM
+                    
+                    if test==1:
+                        n_array_DM=N_DM_exp*np.ones(N_sim,dtype=int)
+        
+                    if channel_time==True:
+                        t_array_DM,E_rec_array_DM,cos_array_DM=[],[],[]
+                        while ((len(t_array_DM))<NN_DM):
+                            jj=np.random.randint(0,source_length-1,source_length)
+                            t_array_tmp=t_src_DM[jj]
+                            E_rec_array_tmp=E_rec_src_DM[jj]
+                            cos_array_tmp=cos_src_DM[jj]
+                            t_array_DM=np.concatenate((t_array_DM,t_array_tmp))
+                            E_rec_array_DM=np.concatenate(\
+                                    (E_rec_array_DM,E_rec_array_tmp))
+                            cos_array_DM=np.concatenate(\
+                                    (cos_array_DM,cos_array_tmp))
+                        t_array_DM=t_array_DM[:NN_DM]
+                        E_rec_array_DM=E_rec_array_DM[:NN_DM]
+                        cos_array_DM=cos_array_DM[:NN_DM]
+                    
+                    ###simulate neutrino events
+                    ###
+                    t_array_solar,t_array_atmo,t_array_dsnb=[],[],[]
+                    E_rec_array_solar,E_rec_array_atmo,E_rec_array_dsnb=[],[],[]
+                    cos_array_solar,cos_array_atmo,cos_array_dsnb=[],[],[]
+        
+                    if channel_time==True:
+                        ###if energy information is used, do proper simulation
+                        ###
+                        if channel_Erec==True:
+                            ###solar
+                            ###
+                            if solar_length>1:
+                                t_array_solar, E_rec_array_solar, cos_array_solar=\
+                                    event_simulation.get_event_array(\
+                                       NN_solar, solar_length, \
+                                       t_src_solar_nu,\
+                                       E_rec_src_solar_nu,\
+                                       cos_src_solar_nu )
+                            ###atmo
+                            ###
+                            if atmo_length>1:
+                                t_array_atmo, E_rec_array_atmo, cos_array_atmo =\
+                                    event_simulation.get_event_array(\
+                                       NN_atmo, atmo_length, \
+                                       t_src_atmo_nu,\
+                                       E_rec_src_atmo_nu,\
+                                       cos_src_atmo_nu )
+                            ###dsnb
+                            ###
+                            if dsnb_length>1:
+                                t_array_dsnb, E_rec_array_dsnb, cos_array_dsnb =\
+                                    event_simulation.get_event_array(\
+                                       NN_dsnb, dsnb_length, \
+                                       t_src_dsnb_nu,\
+                                       E_rec_src_dsnb_nu,\
+                                       cos_src_dsnb_nu )
+    
+        
+                        ###stick together in correct order
+                        ###
+                        E_rec_nu=np.zeros(NN_tot)
+                        cos_nu=np.zeros(NN_tot)
+                        t_nu=np.zeros(NN_tot)
+        
+                        if solar_length>1:
+                            ij=np.nonzero(N_solar>0.5)
+                            E_rec_nu[ij]=E_rec_array_solar
+                            cos_nu[ij]=cos_array_solar
+                            t_nu[ij]=t_array_solar
+                        if atmo_length>1:
+                            ij=np.nonzero(N_atmo>0.5)
+                            E_rec_nu[ij]=E_rec_array_atmo
+                            cos_nu[ij]=cos_array_atmo
+                            t_nu[ij]=t_array_atmo
+                        if dsnb_length>1:
+                            ij=np.nonzero(N_dsnb>0.5)
+                            E_rec_nu[ij]=E_rec_array_dsnb
+                            cos_nu[ij]=cos_array_dsnb
+                            t_nu[ij]=t_array_dsnb
+        
+                        ij=np.nonzero(t_nu)
+                        t_nu=t_nu[ij]
+                        cos_nu=cos_nu[ij]
+                        E_rec_nu=E_rec_nu[ij]
+        
+                        del t_array_solar
+                        del t_array_atmo
+                        del t_array_dsnb
+                        del E_rec_array_solar
+                        del E_rec_array_atmo
+                        del E_rec_array_dsnb
+                        del cos_array_solar
+                        del cos_array_atmo
+                        del cos_array_dsnb
+        
+                        if print_info==1:
+                            print 'DONE!'
+        
+                    ###calculate Pb_SB and Psb_SB
                     ###
                     mu_nu=np.zeros((N_sim,N_Q))
                     for ii in range (9):
                         if N_sun_arr[ii]>0.:
                             N_nu_solar=np.random.normal(N_sun_arr[ii],\
-                                    nu_sigma[0]*N_sun_arr[ii],(N_sim,N_Q))
+                                            nu_sigma[0]*N_sun_arr[ii],(N_sim,N_Q))
                             N_nu_solar=np.where(N_nu_solar<0.,0.,N_nu_solar)
                             mu_nu+=N_nu_solar
                     for ii in range (4):
                         if N_atmo_arr[ii]>0.:
                             N_nu_atmo=np.random.normal(N_atmo_arr[ii],\
-                                    nu_sigma[1]*N_atmo_arr[ii],(N_sim,N_Q))
+                                            nu_sigma[1]*N_atmo_arr[ii],(N_sim,N_Q))
                             N_nu_atmo=np.where(N_nu_atmo<0.,0.,N_nu_atmo)
                             mu_nu+=N_nu_atmo
                     for ii in range (3):
                         if N_dsnb_arr[ii]>0.:
                             N_nu_dsnb=np.random.normal(N_dsnb_arr[ii],\
-                                    nu_sigma[2]*N_dsnb_arr[ii],(N_sim,N_Q))
+                                            nu_sigma[2]*N_dsnb_arr[ii],(N_sim,N_Q))
                             N_nu_dsnb=np.where(N_nu_dsnb<0.,0.,N_nu_dsnb)
                             mu_nu+=N_nu_dsnb
-                    
                     if test==1:
                         n_nu_arr=N_nu_avg*np.ones(N_sim,dtype=int)
-    
                         E_rec_nu=2.*E_thr*np.ones(N_sim*N_nu_avg)
                         cos_nu=0.5*np.ones(N_sim*N_nu_avg)
                         t_nu=100.*np.ones(N_sim*N_nu_avg)
                         mu_nu=N_nu_avg*np.ones((N_sim,N_Q))
                         NN_nu=N_nu_avg*N_sim
-    
+            
                     mu_nu=np.hstack(mu_nu)
                     n_nu_arr=np.tile(n_nu_arr,N_Q)
-    
-                
-                if channel_time==True:
-                    if channel_Erec==True:
-                        dif=np.zeros((len(t_edges),len(t_nu)))
-                        for ii in range(len(t_edges)):
-                            dif[ii]=abs(t_edges[ii]-t_nu)
-                        dif=np.reshape(dif,(len(t_nu),len(t_edges)))
-                        id1_nu=np.argmin(dif,axis=1)
-                        t0_nu=t_edges[id1_nu]
-                        id2_nu=np.where(id1_nu==N_tt-1,id1_nu-1,0)
-                        id2_nu=np.where(id1_nu==0,1,id2_nu)
-                        
-                        id2_nu_tmp1=np.where(id2_nu==0,id1_nu+1,id2_nu)
-                        t1_nu=t_edges[id2_nu_tmp1]
-                        
-                        id2_nu_tmp2=np.where(id2_nu==0,id1_nu-1,id2_nu)
-                        t2_nu=t_edges[id2_nu_tmp2]
-                        
-                        id2_nu=np.where(abs(t1_nu-t_nu)>abs(t2_nu-t_nu),\
-                                            id2_nu_tmp2,id2_nu)
-                        id2_nu=np.where(abs(t1_nu-t_nu)<abs(t2_nu-t_nu),\
-                                            id2_nu_tmp1,id2_nu)
-                        d1=abs(t_nu-t_edges[id1_nu])
-                        d2=abs(t_nu-t_edges[id2_nu])
-                        pdf1,pdf2=np.zeros(NN_nu),np.zeros(NN_nu)
-                        for ii in range (N_tt):
-                            pdf1=np.where(id1_nu==ii,\
-                                    f_array[ii].ev(E_rec_nu,cos_nu),pdf1)
-                            pdf2=np.where(id2_nu==ii,\
-                                    f_array[ii].ev(E_rec_nu,cos_nu),pdf2)
-                        prob_nu_B_angle=Pb_ipl.ev(E_rec_nu,cos_nu)
-                        prob_nu_S_angle=pdf1+d1/(d1+d2)*(pdf2-pdf1)
-                        for ii in range (N_tt):
-                            pdf1=np.where(id1_nu==ii,\
-                                    f_array_noangle[ii](E_rec_nu),pdf1)
-                            pdf2=np.where(id2_nu==ii,\
-                                    f_array_noangle[ii](E_rec_nu),pdf2)
-                        prob_nu_B_erec=Pb_noangle_ipl(E_rec_nu)
-                        prob_nu_S_erec=pdf1+d1/(d1+d2)*(pdf2-pdf1)
-    
-                    prob_nu_S_time=pdf_DM_t(t_nu)
-                    prob_nu_B_time=pdf_nu_t(t_nu)
-    
-                    prob_nu_S_time=np.tile(prob_nu_S_time,N_Q)
-                    prob_nu_B_time=np.tile(prob_nu_B_time,N_Q)
-                    prob_nu_S_angle=np.tile(prob_nu_S_angle,N_Q)
-                    prob_nu_B_angle=np.tile(prob_nu_B_angle,N_Q)
-                    prob_nu_S_erec=np.tile(prob_nu_S_erec,N_Q)
-                    prob_nu_B_erec=np.tile(prob_nu_B_erec,N_Q)
-    
-                    n_split=np.cumsum(n_nu_arr)
-                    n_split=np.delete(n_split,-1)
-                    prob_nu_B_time=np.split(prob_nu_B_time,n_split)
-                    prob_nu_S_time=np.split(prob_nu_S_time,n_split)
-                    prob_nu_B_angle=np.split(prob_nu_B_angle,n_split)
-                    prob_nu_S_angle=np.split(prob_nu_S_angle,n_split)
-                    prob_nu_B_erec=np.split(prob_nu_B_erec,n_split)
-                    prob_nu_S_erec=np.split(prob_nu_S_erec,n_split)
-               
-                    QBrangeAngle = []
-                    QBrangeErec = []
-
-                    for ii in range (N_sim*N_Q):
-                        time_info=np.log(1.+1.*mu_DM/mu_nu[ii]*\
-                                    prob_nu_S_time[ii]/prob_nu_B_time[ii])
-                        angle_info=np.log(1.+1.*mu_DM/mu_nu[ii]*\
-                                    prob_nu_S_angle[ii]/prob_nu_B_angle[ii])
-                        erec_info=np.log(1.+1.*mu_DM/mu_nu[ii]*\
-                                    prob_nu_S_erec[ii]/prob_nu_B_erec[ii])
-                        pre=-mu_DM+n_nu_arr[ii]*(np.log(mu_nu[ii])-\
-                                    np.log(mu_DM+mu_nu[ii]))
-                        
-                        angle_info=pre+np.sum(time_info)+np.sum(angle_info)
-                        erec_info=pre+np.sum(time_info)+np.sum(erec_info)
-                        Q_B_angle = -2. * np.array( [angle_info] )
-                        Q_B_erec  = -2. * np.array( [erec_info] )
-                        
-                        if( 0 == FIX_BIN_SIZES_B):
-                            QBrangeAngle.append(Q_B_angle)
-                            QBrangeErec.append(Q_B_erec)
-
-                        else:
-                            Q_B_angle_histo += np.histogram( Q_B_angle,\
-                                    bins = binsQBAngle )[0]
-                            Q_B_erec_histo  += np.histogram( Q_B_erec,\
-                                    bins = binsQBErec )[0]
-
-                    if( 0 == FIX_BIN_SIZES_B):
-                        binsQBAngle = np.linspace(\
-                            min( QBrangeAngle ), max( QBrangeAngle ),\
-                            N_bins)
-                        binsQBErec = np.linspace(\
-                            min(QBrangeErec), max(QBrangeErec),\
-                            N_bins)
-                        Q_B_angle_histo = np.histogram( QBrangeAngle,\
-                            bins = binsQBAngle )[0]
-                        Q_B_erec_histo  = np.histogram( QBrangeErec,\
-                            bins = binsQBErec )[0]
-                        FIX_BIN_SIZES_B = 1
-
-
-                    del prob_nu_B_time
-                    del prob_nu_S_time
-                    del prob_nu_B_angle
-                    del prob_nu_S_angle
-                    del prob_nu_B_erec
-                    del prob_nu_S_erec
-                    del Q_B_angle
-                    del Q_B_erec
-    
-                    if print_info==1:
-                        print 'DONE!'
-    
-                #########################
-                ###Now, S+B hypothesis###
-                #########################
-                N_SB=N_DM_exp+N_nu_exp
-                if print_info==1:
-                    print 'S+B hypothesis'
-                    print ''
-                    print 'N_DM_exp, N_nu_exp, N_SB'
-                    print N_DM_exp,N_nu_exp
-                    print ''
-                    print 'get neutrino events'
-                    
-                NN_SB=np.random.poisson(N_SB,N_sim)
-                ratio_solar=1.*N_sun0/N_SB
-                ratio_atmo=1.*N_atmo0/N_SB
-                ratio_dsnb=1.*N_dsnb0/N_SB
-                ratio_dm=1.*N_DM/N_SB
-                
-                ###get number of DM and neutrino events
-                ###
-                n_arr=np.sum(NN_SB)
-                r_dm=ratio_dm*np.ones(n_arr)
-                r_solar=ratio_solar*np.ones(n_arr)
-                r_atmo=ratio_atmo*np.ones(n_arr)
-                r_dsnb=ratio_dsnb*np.ones(n_arr)
-    
-                ###split up in solar, atmo and dsnb neutrinos
-                ###
-                r_array=np.random.uniform(0.,1.,n_arr)
-                N_solar=np.where(r_array<r_solar,1,0)
-                N_dm=np.where(r_array>(r_solar+r_atmo+r_dsnb),1,0)
-                N_atmo=1-N_solar-N_dm
-                N_atmo=np.random.uniform(0.,r_atmo+r_dsnb)*N_atmo
-                N_atmo=np.where(N_atmo>r_dsnb,1,0)
-                N_dsnb=1-N_dm-N_solar-N_atmo
-                NN_solar=np.sum(N_solar)
-                NN_atmo=np.sum(N_atmo)
-                NN_dsnb=np.sum(N_dsnb)
-                NN_DM=np.sum(N_dm)
-                NN_tot=NN_solar+NN_atmo+NN_dsnb+NN_DM
-                NN_nu=NN_tot-NN_DM
-    
-                ###simulate DM events
-                ###
-                tmp=np.cumsum(NN_SB)
-                i_max=len(tmp)
-                tmp=np.split(N_dm,tmp)
-                n_array_DM=np.zeros(i_max,dtype=int)
-                for ii in range (i_max):
-                    n_array_DM[ii]=int(sum(tmp[ii]))
-                n_nu_arr=NN_SB-n_array_DM
-                
-                if test==1:
-                    n_array_DM=N_DM_exp*np.ones(N_sim,dtype=int)
-    
-                if channel_time==True:
-                    t_array_DM,E_rec_array_DM,cos_array_DM=[],[],[]
-                    while ((len(t_array_DM))<NN_DM):
-                        jj=np.random.randint(0,source_length-1,source_length)
-                        t_array_tmp=t_src_DM[jj]
-                        E_rec_array_tmp=E_rec_src_DM[jj]
-                        cos_array_tmp=cos_src_DM[jj]
-                        t_array_DM=np.concatenate((t_array_DM,t_array_tmp))
-                        E_rec_array_DM=np.concatenate(\
-                                (E_rec_array_DM,E_rec_array_tmp))
-                        cos_array_DM=np.concatenate(\
-                                (cos_array_DM,cos_array_tmp))
-                    t_array_DM=t_array_DM[:NN_DM]
-                    E_rec_array_DM=E_rec_array_DM[:NN_DM]
-                    cos_array_DM=cos_array_DM[:NN_DM]
-                
-                ###simulate neutrino events
-                ###
-                t_array_solar,t_array_atmo,t_array_dsnb=[],[],[]
-                E_rec_array_solar,E_rec_array_atmo,E_rec_array_dsnb=[],[],[]
-                cos_array_solar,cos_array_atmo,cos_array_dsnb=[],[],[]
-    
-                if channel_time==True:
-                    ###if energy information is used, do proper simulation
-                    ###
-                    if channel_Erec==True:
-                        ###solar
-                        ###
-                        if solar_length>1:
-                            t_array_solar, E_rec_array_solar, cos_array_solar=\
-                                event_simulation.get_event_array(\
-                                   NN_solar, solar_length, \
-                                   t_src_solar_nu,\
-                                   E_rec_src_solar_nu,\
-                                   cos_src_solar_nu )
-                        ###atmo
-                        ###
-                        if atmo_length>1:
-                            t_array_atmo, E_rec_array_atmo, cos_array_atmo =\
-                                event_simulation.get_event_array(\
-                                   NN_atmo, atmo_length, \
-                                   t_src_atmo_nu,\
-                                   E_rec_src_atmo_nu,\
-                                   cos_src_atmo_nu )
-                        ###dsnb
-                        ###
-                        if dsnb_length>1:
-                            t_array_dsnb, E_rec_array_dsnb, cos_array_dsnb =\
-                                event_simulation.get_event_array(\
-                                   NN_dsnb, dsnb_length, \
-                                   t_src_dsnb_nu,\
-                                   E_rec_src_dsnb_nu,\
-                                   cos_src_dsnb_nu )
-
-    
-                    ###stick together in correct order
-                    ###
-                    E_rec_nu=np.zeros(NN_tot)
-                    cos_nu=np.zeros(NN_tot)
-                    t_nu=np.zeros(NN_tot)
-    
-                    if solar_length>1:
-                        ij=np.nonzero(N_solar>0.5)
-                        E_rec_nu[ij]=E_rec_array_solar
-                        cos_nu[ij]=cos_array_solar
-                        t_nu[ij]=t_array_solar
-                    if atmo_length>1:
-                        ij=np.nonzero(N_atmo>0.5)
-                        E_rec_nu[ij]=E_rec_array_atmo
-                        cos_nu[ij]=cos_array_atmo
-                        t_nu[ij]=t_array_atmo
-                    if dsnb_length>1:
-                        ij=np.nonzero(N_dsnb>0.5)
-                        E_rec_nu[ij]=E_rec_array_dsnb
-                        cos_nu[ij]=cos_array_dsnb
-                        t_nu[ij]=t_array_dsnb
-    
-                    ij=np.nonzero(t_nu)
-                    t_nu=t_nu[ij]
-                    cos_nu=cos_nu[ij]
-                    E_rec_nu=E_rec_nu[ij]
-    
-                    del t_array_solar
-                    del t_array_atmo
-                    del t_array_dsnb
-                    del E_rec_array_solar
-                    del E_rec_array_atmo
-                    del E_rec_array_dsnb
-                    del cos_array_solar
-                    del cos_array_atmo
-                    del cos_array_dsnb
-    
-                    if print_info==1:
-                        print 'DONE!'
-    
-                ###calculate Pb_SB and Psb_SB
-                ###
-                mu_nu=np.zeros((N_sim,N_Q))
-                for ii in range (9):
-                    if N_sun_arr[ii]>0.:
-                        N_nu_solar=np.random.normal(N_sun_arr[ii],\
-                                        nu_sigma[0]*N_sun_arr[ii],(N_sim,N_Q))
-                        N_nu_solar=np.where(N_nu_solar<0.,0.,N_nu_solar)
-                        mu_nu+=N_nu_solar
-                for ii in range (4):
-                    if N_atmo_arr[ii]>0.:
-                        N_nu_atmo=np.random.normal(N_atmo_arr[ii],\
-                                        nu_sigma[1]*N_atmo_arr[ii],(N_sim,N_Q))
-                        N_nu_atmo=np.where(N_nu_atmo<0.,0.,N_nu_atmo)
-                        mu_nu+=N_nu_atmo
-                for ii in range (3):
-                    if N_dsnb_arr[ii]>0.:
-                        N_nu_dsnb=np.random.normal(N_dsnb_arr[ii],\
-                                        nu_sigma[2]*N_dsnb_arr[ii],(N_sim,N_Q))
-                        N_nu_dsnb=np.where(N_nu_dsnb<0.,0.,N_nu_dsnb)
-                        mu_nu+=N_nu_dsnb
-                if test==1:
-                    n_nu_arr=N_nu_avg*np.ones(N_sim,dtype=int)
-                    E_rec_nu=2.*E_thr*np.ones(N_sim*N_nu_avg)
-                    cos_nu=0.5*np.ones(N_sim*N_nu_avg)
-                    t_nu=100.*np.ones(N_sim*N_nu_avg)
-                    mu_nu=N_nu_avg*np.ones((N_sim,N_Q))
-                    NN_nu=N_nu_avg*N_sim
+                    n_array_DM=np.tile(n_array_DM,N_Q)
         
-                mu_nu=np.hstack(mu_nu)
-                n_nu_arr=np.tile(n_nu_arr,N_Q)
-                n_array_DM=np.tile(n_array_DM,N_Q)
-    
-                ###Dark Matter
-                ### (i.e. Signal)
-                if print_info==1:
-                    print 'mu nu'
-                    print mu_nu[:12]
-                    print ''
-                    print 'n_DM'
-                    print n_array_DM[:12]
-                    print ''
-                    print 'cos_DM'
-                    print cos_array_DM[:12]
-                    print ''
-                    print 'E_rec_DM'
-                    print E_rec_array_DM[:12]
-                    print ''
-                    print 'calculate S+B dark matter'
-                
-                if channel_time==True:
-                    prob_DM_B=np.ones(NN_DM)
-                    prob_DM_SB=np.ones(NN_DM)
-                    if channel_Erec==True:
-                        dif=np.zeros((len(t_edges),len(t_array_DM)))
-                        for ii in range(len(t_edges)):
-                            dif[ii]=abs(t_edges[ii]-t_array_DM)
-                        dif=np.reshape(dif,(len(t_array_DM),len(t_edges)))
-                        id1_DM=np.argmin(dif,axis=1)
-                        t0_DM=t_edges[id1_DM]
-                        id2_DM=np.where(id1_DM==N_tt-1,id1_DM-1,0)
-                        id2_DM=np.where(id1_DM==0,1,id2_DM)
-                        
-                        id2_DM_tmp1=np.where(id2_DM==0,id1_DM+1,id2_DM)
-                        t1_DM=t_edges[id2_DM_tmp1]
-                        
-                        id2_DM_tmp2=np.where(id2_DM==0,id1_DM-1,id2_DM)
-                        t2_DM=t_edges[id2_DM_tmp2]
-                        
-                        id2_DM=np.where(abs(t1_DM-t_array_DM)>\
-                                abs(t2_DM-t_array_DM),id2_DM_tmp2,id2_DM)
-                        id2_DM=np.where(abs(t1_DM-t_array_DM)<\
-                                abs(t2_DM-t_array_DM),id2_DM_tmp1,id2_DM)
-                        d1=abs(t_array_DM-t_edges[id1_DM])
-                        d2=abs(t_array_DM-t_edges[id2_DM])
-                        pdf1,pdf2=np.zeros(NN_DM),np.zeros(NN_DM)
-                        #if channel_angle==True:
-                        for ii in range (N_tt):
-                            pdf1=np.where(id1_DM==ii,f_array[ii].ev(\
-                                        E_rec_array_DM,cos_array_DM),pdf1)
-                            pdf2=np.where(id2_DM==ii,f_array[ii].ev(\
-                                        E_rec_array_DM,cos_array_DM),pdf2)
-                        prob_DM_S_angle=pdf1+d1/(d1+d2)*(pdf2-pdf1)
-                        prob_DM_B_angle=Pb_ipl.ev(E_rec_array_DM,cos_array_DM)
-    
-                        #if channel_angle==False:
-                        for ii in range (N_tt):
-                            pdf1=np.where(id1_DM==ii,f_array_noangle[ii](\
-                                                    E_rec_array_DM),pdf1)
-                            pdf2=np.where(id2_DM==ii,f_array_noangle[ii](\
-                                                    E_rec_array_DM),pdf2)
-                        prob_DM_S_erec=pdf1+d1/(d1+d2)*(pdf2-pdf1)
-                        prob_DM_B_erec=Pb_noangle_ipl(E_rec_array_DM)
-    
-                    prob_DM_S_time=pdf_DM_t(t_array_DM)
-                    prob_DM_B_time=pdf_nu_t(t_array_DM)
-    
-                    prob_DM_S_time=np.tile(prob_DM_S_time,N_Q)
-                    prob_DM_B_time=np.tile(prob_DM_B_time,N_Q)
-                    prob_DM_S_angle=np.tile(prob_DM_S_angle,N_Q)
-                    prob_DM_B_angle=np.tile(prob_DM_B_angle,N_Q)
-                    prob_DM_S_erec=np.tile(prob_DM_S_erec,N_Q)
-                    prob_DM_B_erec=np.tile(prob_DM_B_erec,N_Q)
-    
-                    n_split=np.cumsum(n_array_DM)
-                    n_split=np.delete(n_split,-1)
-                    prob_DM_B_time=np.split(prob_DM_B_time,n_split)
-                    prob_DM_S_time=np.split(prob_DM_S_time,n_split)
-                    prob_DM_B_angle=np.split(prob_DM_B_angle,n_split)
-                    prob_DM_S_angle=np.split(prob_DM_S_angle,n_split)
-                    prob_DM_B_erec=np.split(prob_DM_B_erec,n_split)
-                    prob_DM_S_erec=np.split(prob_DM_S_erec,n_split)
-    
+                    ###Dark Matter
+                    ### (i.e. Signal)
+                    if print_info==1:
+                        print 'mu nu'
+                        print mu_nu[:12]
+                        print ''
+                        print 'n_DM'
+                        print n_array_DM[:12]
+                        print ''
+                        print 'cos_DM'
+                        print cos_array_DM[:12]
+                        print ''
+                        print 'E_rec_DM'
+                        print E_rec_array_DM[:12]
+                        print ''
+                        print 'calculate S+B dark matter'
                     
-                    if print_info==1:
-                        print 'DONE!'
-    
-                ###neutrinos
-                ### (i.e. Background)
-                if print_info==1:
-                    print 'n_nu'
-                    print n_nu_arr[:12]
-                    print ''
-                    print 'cos_nu'
-                    print cos_nu[:12]
-                    print ''
-                    print 'E_rec_nu'
-                    print E_rec_nu[:12]
-                    print ''
-                    print 'calculate S+B neutrinos'
-    
-                if channel_time==True:
-                    prob_nu_SB=np.ones(NN_nu)
-                    if channel_Erec==True:
-                        dif=np.zeros((len(t_edges),len(t_nu)))
-                        for ii in range(len(t_edges)):
-                            dif[ii]=abs(t_edges[ii]-t_nu)
-                        dif=np.reshape(dif,(len(t_nu),len(t_edges)))
-                        id1_nu=np.argmin(dif,axis=1)
-                        t0_nu=t_edges[id1_nu]
-                        id2_nu=np.where(id1_nu==N_tt-1,id1_nu-1,0)
-                        id2_nu=np.where(id1_nu==0,1,id2_nu)
-                        
-                        id2_nu_tmp1=np.where(id2_nu==0,id1_nu+1,id2_nu)
-                        t1_nu=t_edges[id2_nu_tmp1]
-                        
-                        id2_nu_tmp2=np.where(id2_nu==0,id1_nu-1,id2_nu)
-                        t2_nu=t_edges[id2_nu_tmp2]
-                        
-                        id2_nu=np.where(abs(t1_nu-t_nu)>\
-                                abs(t2_nu-t_nu),id2_nu_tmp2,id2_nu)
-                        id2_nu=np.where(abs(t1_nu-t_nu)<\
-                                abs(t2_nu-t_nu),id2_nu_tmp1,id2_nu)
-                        d1=abs(t_nu-t_edges[id1_nu])
-                        d2=abs(t_nu-t_edges[id2_nu])
-                        pdf1,pdf2=np.zeros(NN_nu),np.zeros(NN_nu)
-                        for ii in range (N_tt):
-                            pdf1=np.where(id1_nu==ii,f_array[ii].ev(\
-                                            E_rec_nu,cos_nu),pdf1)
-                            pdf2=np.where(id2_nu==ii,f_array[ii].ev(\
-                                            E_rec_nu,cos_nu),pdf2)
-                        prob_nu_B_angle=Pb_ipl.ev(E_rec_nu,cos_nu)
-                        prob_nu_S_angle=pdf1+d1/(d1+d2)*(pdf2-pdf1)
-    
-                        for ii in range (N_tt):
-                            pdf1=np.where(id1_nu==ii,f_array_noangle[ii](\
-                                                    E_rec_nu),pdf1)
-                            pdf2=np.where(id2_nu==ii,f_array_noangle[ii](\
-                                                    E_rec_nu),pdf2)
-                        prob_nu_B_erec=Pb_noangle_ipl(E_rec_nu)
-                        prob_nu_S_erec=pdf1+d1/(d1+d2)*(pdf2-pdf1)
-    
-                    prob_nu_S_time=pdf_DM_t(t_nu)
-                    prob_nu_B_time=pdf_nu_t(t_nu)
-    
-                    prob_nu_S_time=np.tile(prob_nu_S_time,N_Q)
-                    prob_nu_B_time=np.tile(prob_nu_B_time,N_Q)
-                    prob_nu_S_angle=np.tile(prob_nu_S_angle,N_Q)
-                    prob_nu_B_angle=np.tile(prob_nu_B_angle,N_Q)
-                    prob_nu_S_erec=np.tile(prob_nu_S_erec,N_Q)
-                    prob_nu_B_erec=np.tile(prob_nu_B_erec,N_Q)
-    
-                    n_split=np.cumsum(n_nu_arr)
-                    n_split=np.delete(n_split,-1)
-                    prob_nu_B_time=np.split(prob_nu_B_time,n_split)
-                    prob_nu_S_time=np.split(prob_nu_S_time,n_split)
-                    prob_nu_B_angle=np.split(prob_nu_B_angle,n_split)
-                    prob_nu_S_angle=np.split(prob_nu_S_angle,n_split)
-                    prob_nu_B_erec=np.split(prob_nu_B_erec,n_split)
-                    prob_nu_S_erec=np.split(prob_nu_S_erec,n_split)
+                    if channel_time==True:
+                        prob_DM_B=np.ones(NN_DM)
+                        prob_DM_SB=np.ones(NN_DM)
+                        if channel_Erec==True:
+                            dif=np.zeros((len(t_edges),len(t_array_DM)))
+                            for ii in range(len(t_edges)):
+                                dif[ii]=abs(t_edges[ii]-t_array_DM)
+                            dif=np.reshape(dif,(len(t_array_DM),len(t_edges)))
+                            id1_DM=np.argmin(dif,axis=1)
+                            t0_DM=t_edges[id1_DM]
+                            id2_DM=np.where(id1_DM==N_tt-1,id1_DM-1,0)
+                            id2_DM=np.where(id1_DM==0,1,id2_DM)
+                            
+                            id2_DM_tmp1=np.where(id2_DM==0,id1_DM+1,id2_DM)
+                            t1_DM=t_edges[id2_DM_tmp1]
+                            
+                            id2_DM_tmp2=np.where(id2_DM==0,id1_DM-1,id2_DM)
+                            t2_DM=t_edges[id2_DM_tmp2]
+                            
+                            id2_DM=np.where(abs(t1_DM-t_array_DM)>\
+                                    abs(t2_DM-t_array_DM),id2_DM_tmp2,id2_DM)
+                            id2_DM=np.where(abs(t1_DM-t_array_DM)<\
+                                    abs(t2_DM-t_array_DM),id2_DM_tmp1,id2_DM)
+                            d1=abs(t_array_DM-t_edges[id1_DM])
+                            d2=abs(t_array_DM-t_edges[id2_DM])
+                            pdf1,pdf2=np.zeros(NN_DM),np.zeros(NN_DM)
+                            #if channel_angle==True:
+                            for ii in range (N_tt):
+                                pdf1=np.where(id1_DM==ii,f_array[ii].ev(\
+                                            E_rec_array_DM,cos_array_DM),pdf1)
+                                pdf2=np.where(id2_DM==ii,f_array[ii].ev(\
+                                            E_rec_array_DM,cos_array_DM),pdf2)
+                            prob_DM_S_angle=pdf1+d1/(d1+d2)*(pdf2-pdf1)
+                            prob_DM_B_angle=Pb_ipl.ev(E_rec_array_DM,cos_array_DM)
         
-                    if print_info==1:
-                        print 'DONE!'
-                        print 'put everything together'
-    
-                    angle_info_nu,erec_info_nu=[],[]
-                    angle_info_DM,erec_info_DM=[],[]
-
-                    QSBrangeAngle = []
-                    QSBrangeErec = []
-
-                    for ii in range (N_sim*N_Q):
-                        time_info_nu=np.array([np.sum(np.log(\
-                                1.+1.*mu_DM/mu_nu[ii]*prob_nu_S_time[ii]/\
-                                prob_nu_B_time[ii]))])
-
-                        angle_info_nu=np.array([np.sum(np.log(\
-                                1.+1.*mu_DM/mu_nu[ii]*prob_nu_S_angle[ii]/\
-                                prob_nu_B_angle[ii]))])
-
-                        erec_info_nu=np.array([np.sum(np.log(\
-                                1.+1.*mu_DM/mu_nu[ii]*prob_nu_S_erec[ii]/\
-                                prob_nu_B_erec[ii]))])
-
-                        angle_info_nu = time_info_nu + angle_info_nu
-
-                        erec_info_nu  = time_info_nu + erec_info_nu
-
-                        time_info_DM=np.array([np.sum(np.log(\
-                            1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_time[ii]/\
-                            prob_DM_B_time[ii]))])
-
-                        angle_info_DM=np.array([np.sum(np.log(\
-                            1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_angle[ii]/\
-                            prob_DM_B_angle[ii]))])
-
-                        erec_info_DM=np.array([np.sum(np.log(\
-                            1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_erec[ii]/\
-                            prob_DM_B_erec[ii]))])
-
-                        pre=np.array([-mu_DM+\
-                            (n_nu_arr[ii]+n_array_DM[ii])*\
-                            (np.log(mu_nu[ii])-np.log(mu_nu[ii]+mu_DM))])
+                            #if channel_angle==False:
+                            for ii in range (N_tt):
+                                pdf1=np.where(id1_DM==ii,f_array_noangle[ii](\
+                                                        E_rec_array_DM),pdf1)
+                                pdf2=np.where(id2_DM==ii,f_array_noangle[ii](\
+                                                        E_rec_array_DM),pdf2)
+                            prob_DM_S_erec=pdf1+d1/(d1+d2)*(pdf2-pdf1)
+                            prob_DM_B_erec=Pb_noangle_ipl(E_rec_array_DM)
+        
+                        prob_DM_S_time=pdf_DM_t(t_array_DM)
+                        prob_DM_B_time=pdf_nu_t(t_array_DM)
+        
+                        prob_DM_S_time=np.tile(prob_DM_S_time,N_Q)
+                        prob_DM_B_time=np.tile(prob_DM_B_time,N_Q)
+                        prob_DM_S_angle=np.tile(prob_DM_S_angle,N_Q)
+                        prob_DM_B_angle=np.tile(prob_DM_B_angle,N_Q)
+                        prob_DM_S_erec=np.tile(prob_DM_S_erec,N_Q)
+                        prob_DM_B_erec=np.tile(prob_DM_B_erec,N_Q)
+        
+                        n_split=np.cumsum(n_array_DM)
+                        n_split=np.delete(n_split,-1)
+                        prob_DM_B_time=np.split(prob_DM_B_time,n_split)
+                        prob_DM_S_time=np.split(prob_DM_S_time,n_split)
+                        prob_DM_B_angle=np.split(prob_DM_B_angle,n_split)
+                        prob_DM_S_angle=np.split(prob_DM_S_angle,n_split)
+                        prob_DM_B_erec=np.split(prob_DM_B_erec,n_split)
+                        prob_DM_S_erec=np.split(prob_DM_S_erec,n_split)
+        
                         
-                        angle_info_DM = pre + time_info_DM + angle_info_DM
-                        erec_info_DM = pre + time_info_DM + erec_info_DM
-
-                        Q_SB_angle = -2. * ( angle_info_DM + angle_info_nu )
-                        Q_SB_erec  = -2. * ( erec_info_DM + erec_info_nu )
-
+                        if print_info==1:
+                            print 'DONE!'
+        
+                    ###neutrinos
+                    ### (i.e. Background)
+                    if print_info==1:
+                        print 'n_nu'
+                        print n_nu_arr[:12]
+                        print ''
+                        print 'cos_nu'
+                        print cos_nu[:12]
+                        print ''
+                        print 'E_rec_nu'
+                        print E_rec_nu[:12]
+                        print ''
+                        print 'calculate S+B neutrinos'
+        
+                    if channel_time==True:
+                        prob_nu_SB=np.ones(NN_nu)
+                        if channel_Erec==True:
+                            dif=np.zeros((len(t_edges),len(t_nu)))
+                            for ii in range(len(t_edges)):
+                                dif[ii]=abs(t_edges[ii]-t_nu)
+                            dif=np.reshape(dif,(len(t_nu),len(t_edges)))
+                            id1_nu=np.argmin(dif,axis=1)
+                            t0_nu=t_edges[id1_nu]
+                            id2_nu=np.where(id1_nu==N_tt-1,id1_nu-1,0)
+                            id2_nu=np.where(id1_nu==0,1,id2_nu)
+                            
+                            id2_nu_tmp1=np.where(id2_nu==0,id1_nu+1,id2_nu)
+                            t1_nu=t_edges[id2_nu_tmp1]
+                            
+                            id2_nu_tmp2=np.where(id2_nu==0,id1_nu-1,id2_nu)
+                            t2_nu=t_edges[id2_nu_tmp2]
+                            
+                            id2_nu=np.where(abs(t1_nu-t_nu)>\
+                                    abs(t2_nu-t_nu),id2_nu_tmp2,id2_nu)
+                            id2_nu=np.where(abs(t1_nu-t_nu)<\
+                                    abs(t2_nu-t_nu),id2_nu_tmp1,id2_nu)
+                            d1=abs(t_nu-t_edges[id1_nu])
+                            d2=abs(t_nu-t_edges[id2_nu])
+                            pdf1,pdf2=np.zeros(NN_nu),np.zeros(NN_nu)
+                            for ii in range (N_tt):
+                                pdf1=np.where(id1_nu==ii,f_array[ii].ev(\
+                                                E_rec_nu,cos_nu),pdf1)
+                                pdf2=np.where(id2_nu==ii,f_array[ii].ev(\
+                                                E_rec_nu,cos_nu),pdf2)
+                            prob_nu_B_angle=Pb_ipl.ev(E_rec_nu,cos_nu)
+                            prob_nu_S_angle=pdf1+d1/(d1+d2)*(pdf2-pdf1)
+        
+                            for ii in range (N_tt):
+                                pdf1=np.where(id1_nu==ii,f_array_noangle[ii](\
+                                                        E_rec_nu),pdf1)
+                                pdf2=np.where(id2_nu==ii,f_array_noangle[ii](\
+                                                        E_rec_nu),pdf2)
+                            prob_nu_B_erec=Pb_noangle_ipl(E_rec_nu)
+                            prob_nu_S_erec=pdf1+d1/(d1+d2)*(pdf2-pdf1)
+        
+                        prob_nu_S_time=pdf_DM_t(t_nu)
+                        prob_nu_B_time=pdf_nu_t(t_nu)
+        
+                        prob_nu_S_time=np.tile(prob_nu_S_time,N_Q)
+                        prob_nu_B_time=np.tile(prob_nu_B_time,N_Q)
+                        prob_nu_S_angle=np.tile(prob_nu_S_angle,N_Q)
+                        prob_nu_B_angle=np.tile(prob_nu_B_angle,N_Q)
+                        prob_nu_S_erec=np.tile(prob_nu_S_erec,N_Q)
+                        prob_nu_B_erec=np.tile(prob_nu_B_erec,N_Q)
+        
+                        n_split=np.cumsum(n_nu_arr)
+                        n_split=np.delete(n_split,-1)
+                        prob_nu_B_time=np.split(prob_nu_B_time,n_split)
+                        prob_nu_S_time=np.split(prob_nu_S_time,n_split)
+                        prob_nu_B_angle=np.split(prob_nu_B_angle,n_split)
+                        prob_nu_S_angle=np.split(prob_nu_S_angle,n_split)
+                        prob_nu_B_erec=np.split(prob_nu_B_erec,n_split)
+                        prob_nu_S_erec=np.split(prob_nu_S_erec,n_split)
+            
+                        if print_info==1:
+                            print 'DONE!'
+                            print 'put everything together'
+        
+                        angle_info_nu,erec_info_nu=[],[]
+                        angle_info_DM,erec_info_DM=[],[]
+    
+                        QSBrangeAngle = []
+                        QSBrangeErec = []
+    
+                        for ii in range (N_sim*N_Q):
+                            time_info_nu=np.array([np.sum(np.log(\
+                                    1.+1.*mu_DM/mu_nu[ii]*prob_nu_S_time[ii]/\
+                                    prob_nu_B_time[ii]))])
+    
+                            angle_info_nu=np.array([np.sum(np.log(\
+                                    1.+1.*mu_DM/mu_nu[ii]*prob_nu_S_angle[ii]/\
+                                    prob_nu_B_angle[ii]))])
+    
+                            erec_info_nu=np.array([np.sum(np.log(\
+                                    1.+1.*mu_DM/mu_nu[ii]*prob_nu_S_erec[ii]/\
+                                    prob_nu_B_erec[ii]))])
+    
+                            angle_info_nu = time_info_nu + angle_info_nu
+    
+                            erec_info_nu  = time_info_nu + erec_info_nu
+    
+                            time_info_DM=np.array([np.sum(np.log(\
+                                1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_time[ii]/\
+                                prob_DM_B_time[ii]))])
+    
+                            angle_info_DM=np.array([np.sum(np.log(\
+                                1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_angle[ii]/\
+                                prob_DM_B_angle[ii]))])
+    
+                            erec_info_DM=np.array([np.sum(np.log(\
+                                1.+1.*mu_DM/mu_nu[ii]*prob_DM_S_erec[ii]/\
+                                prob_DM_B_erec[ii]))])
+    
+                            pre=np.array([-mu_DM+\
+                                (n_nu_arr[ii]+n_array_DM[ii])*\
+                                (np.log(mu_nu[ii])-np.log(mu_nu[ii]+mu_DM))])
+                            
+                            angle_info_DM = pre + time_info_DM + angle_info_DM
+                            erec_info_DM = pre + time_info_DM + erec_info_DM
+    
+                            Q_SB_angle = -2. * ( angle_info_DM + angle_info_nu )
+                            Q_SB_erec  = -2. * ( erec_info_DM + erec_info_nu )
+    
+                            if( 0 == FIX_BIN_SIZES_SB):
+                                QSBrangeAngle.append(Q_SB_angle)
+                                QSBrangeErec.append(Q_SB_erec)
+    
+                            else:
+                                Q_SB_angle_histo += np.histogram( Q_SB_angle,\
+                                        bins = binsQBAngle )[0]
+                                Q_SB_erec_histo  += np.histogram( Q_SB_erec,\
+                                        bins = binsQBErec )[0]
+    
                         if( 0 == FIX_BIN_SIZES_SB):
-                            QSBrangeAngle.append(Q_SB_angle)
-                            QSBrangeErec.append(Q_SB_erec)
-
-                        else:
-                            Q_SB_angle_histo += np.histogram( Q_SB_angle,\
-                                    bins = binsQBAngle )[0]
-                            Q_SB_erec_histo  += np.histogram( Q_SB_erec,\
-                                    bins = binsQBErec )[0]
-
-                    if( 0 == FIX_BIN_SIZES_SB):
-                        binsQSBAngle = np.linspace(\
-                            min(QSBrangeAngle), max(QSBrangeAngle),\
-                            N_bins)
-                        binsQSBErec = np.linspace(\
-                            min(QSBrangeErec), max(QSBrangeErec),\
-                            N_bins)
-                        Q_SB_angle_histo = np.histogram( QSBrangeAngle,\
-                            bins = binsQSBAngle )[0]
-                        Q_SB_erec_histo  = np.histogram( QSBrangeErec,\
-                            bins = binsQSBErec )[0]
-                        FIX_BIN_SIZES_SB = 1
-
-                    del prob_DM_B_time
-                    del prob_DM_S_time
-                    del prob_DM_B_angle
-                    del prob_DM_S_angle
-                    del prob_DM_B_erec
-                    del prob_DM_S_erec
-                    del prob_nu_B_time
-                    del prob_nu_S_time
-                    del prob_nu_B_angle
-                    del prob_nu_S_angle
-                    del prob_nu_B_erec
-                    del prob_nu_S_erec
-                    del Q_SB_angle
-                    del Q_SB_erec
+                            binsQSBAngle = np.linspace(\
+                                min(QSBrangeAngle), max(QSBrangeAngle),\
+                                N_bins)
+                            binsQSBErec = np.linspace(\
+                                min(QSBrangeErec), max(QSBrangeErec),\
+                                N_bins)
+                            Q_SB_angle_histo = np.histogram( QSBrangeAngle,\
+                                bins = binsQSBAngle )[0]
+                            Q_SB_erec_histo  = np.histogram( QSBrangeErec,\
+                                bins = binsQSBErec )[0]
+                            FIX_BIN_SIZES_SB = 1
     
-                    if print_info==1:
-                        print 'DONE!'
-                        print 'Q-statistics...'
-    
-            ###calculate the values of the test statistics
-            ###
-            cl_angle = statistic.get_cl( Q_SB_angle_histo, Q_B_angle_histo,
-                                          binsQSBAngle, binsQBAngle, 
-                                          N_bins, steps, accuracy)
-            cl_erec= statistic.get_cl( Q_SB_erec_histo, Q_B_erec_histo,
-                                       binsQSBErec, binsQBErec,
-                                       N_bins, steps, accuracy )
-            ###write to file
-            ###
-            f=open(filename_dm,'a')
-            f.write(str(M_det)+ ' '+str(N_nu_exp)+' '+\
-                    str(m_DM_array[mm])+' '+str(sigma[ss])+\
-                    ' '+str(N_DM_exp)+' '+str(cl_angle)+' '+str(cl_erec)+'\n')
-            f.close()
+                        del prob_DM_B_time
+                        del prob_DM_S_time
+                        del prob_DM_B_angle
+                        del prob_DM_S_angle
+                        del prob_DM_B_erec
+                        del prob_DM_S_erec
+                        del prob_nu_B_time
+                        del prob_nu_S_time
+                        del prob_nu_B_angle
+                        del prob_nu_S_angle
+                        del prob_nu_B_erec
+                        del prob_nu_S_erec
+                        del Q_SB_angle
+                        del Q_SB_erec
         
-        if cl_angle<0.00001 and mem1==0:#and cl_erec<0.00001 and mem1==0:
-            waszero=True
-            mem1=1
+                        if print_info==1:
+                            print 'DONE!'
+                            print 'Q-statistics...'
+        
+                ###calculate the values of the test statistics
+                ###
+                cl_angle = statistic.get_cl( Q_SB_angle_histo, Q_B_angle_histo,
+                                              binsQSBAngle, binsQBAngle, 
+                                              N_bins, steps, accuracy)
+                cl_erec= statistic.get_cl( Q_SB_erec_histo, Q_B_erec_histo,
+                                           binsQSBErec, binsQBErec,
+                                           N_bins, steps, accuracy )
+                ###write to file
+                ###
+                f=open(filename_dm,'a')
+                f.write(str(M_det)+ ' '+str(N_nu_exp)+' '+\
+                        str(m_DM_array[mm])+' '+str(sigma[ss])+\
+                        ' '+str(N_DM_exp)+' '+str(cl_angle)+' '+str(cl_erec)+'\n')
+                f.close()
+            
+            if cl_angle<0.00001 and mem1==0:#and cl_erec<0.00001 and mem1==0:
+                waszero=True
+                mem1=1
+        
+            if cl_angle>0.00135 and mem2==0:#cl_erec>0.1 and mem2==0:
+                wasbig=True
+                mem2=1
     
-        if cl_angle>0.00135 and mem2==0:#cl_erec>0.1 and mem2==0:
-            wasbig=True
-            mem2=1
-
-        if wasbig==True and waszero==True:
-            scan=False
-
-        scanned=np.concatenate((scanned,np.array([s_int])))
-
-        if waszero==True:
-            s_int+=1
-
-        if waszero==False:
-            s_int-=1
-
-        if scan==False:
-            if waszero==True and wasbig==False:
+            if wasbig==True and waszero==True:
+                scan=False
+    
+            scanned=np.concatenate((scanned,np.array([s_int])))
+    
+            if waszero==True:
                 s_int+=1
-            else:
+    
+            if waszero==False:
                 s_int-=1
+    
+            if scan==False:
+                if waszero==True and wasbig==False:
+                    s_int+=1
+                else:
+                    s_int-=1
 print ''
 print ''
 print ''
