@@ -70,10 +70,10 @@ N_min_DM=10000          #num of created events to create 2d pdf dark matter
 ###
 source_length=5000      #number of events in event pool
                         #total pool size = factor * source_length
-N_Q=20                  #num of times to vary the fluxes when evaluating Q
+N_Q = 20                #num of times to vary the fluxes when evaluating Q
                         #important for neutrino flux uncertainties:
                         #we have to vary the expectations
-N_sim=25               #num of pseudo experiments generated in simulation
+N_sim = 250            #num of pseudo experiments generated in simulation
                         #total number of pseudo experiments = 
                         #factor * N_sim * N_Q
 
@@ -95,6 +95,7 @@ t1_f=float(t1)-float(t0)
 m_DM_array=np.array([5., 6., 8., 10., 30., 100., 300., 1000.])
 sigma=np.logspace(-40,-52, 120)
 filename_dm='testrun.txt'
+filename_dm = 'output/' + filename_dm
 f=open(filename_dm,'w')
 f.close()
 
@@ -124,7 +125,7 @@ if test==0:
     print 'NEUTRINOS'
     print ''
     print 'creating lookup tables...'
-    #create_all_neutrino_lookuptables(Npoints=500,Nsteps=1000)
+    create_all_neutrino_lookuptables(Npoints=500,Nsteps=1000)
     print '         DONE!'
     print ''
     print 'calculating expected neutrino events...'
