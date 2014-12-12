@@ -1,19 +1,19 @@
 import numpy as np
 import math
 from math import pi,log
+import scipy 
+from scipy.interpolate import RectBivariateSpline
+from scipy.interpolate import interp1d,SmoothBivariateSpline
+from scipy.stats import norm
 import sys
-import ephem as eph
 import random as rnd
+import ephem as eph
 from modules.dm_functions import *
 from modules.neutrino_functions import *
 from modules.constants import *
 from modules.create_lookupfiles import *
 import modules.statistic as statistic
 import modules.event_simulation as event_simulation
-import scipy 
-from scipy.interpolate import RectBivariateSpline
-from scipy.interpolate import interp1d,SmoothBivariateSpline
-from scipy.stats import norm
 #If libastro is locally installed, add it to the path variable
 sys.path.append('/home/pg3/Packages/pyephem-3.7.5.3/libastro-3.7.5')
 ##############################################################################
@@ -24,12 +24,6 @@ sys.path.append('/home/pg3/Packages/pyephem-3.7.5.3/libastro-3.7.5')
 test=0
 show_hist=0
 print_info=0
-if test==1:
-        print ''
-        print '##############################################################'
-        print 'TEST MODE'
-        print '##############################################################'
-        print ''
 
 ###initialise observer, CygnusA and the Sun
 ###
@@ -57,7 +51,7 @@ accuracy=0.0075         #amount by how much both Q_pdf integrals
                         #are required to be similar when calculating
                         #the overlap
 
-factor=10               #num of loops when generating the toy models/events
+factor=2               #num of loops when generating the toy models/events
 ###For the pdf's:
 ###
 N_tt=10                 #num of lookup tables for DM, i.e. time bins
@@ -68,12 +62,12 @@ N_min_DM=10000          #num of created events to create 2d pdf dark matter
 
 ###For the pseudo experiments:
 ###
-source_length=10000      #number of events in event pool
+source_length=100      #number of events in event pool
                         #total pool size = factor * source_length
 N_Q = 10                #num of times to vary the fluxes when evaluating Q
                         #important for neutrino flux uncertainties:
                         #we have to vary the expectations
-N_sim = 250             #num of pseudo experiments generated in simulation
+N_sim = 25             #num of pseudo experiments generated in simulation
                         #total number of pseudo experiments = 
                         #factor * N_sim * N_Q
 
@@ -99,7 +93,7 @@ t1_f=float(t1)-float(t0)
 ###
 m_DM_array=np.array( [1000.] )
 sigma=np.logspace(-40,-52, 120)
-filename_dm='CF4_sens_6GeV_newStat_1000GeV.txt'
+filename_dm='test.txt'
 filename_dm = 'output/' + filename_dm
 f=open(filename_dm,'w')
 f.close()
@@ -153,8 +147,6 @@ N_nu_avg=int(mu_nu_ini)
 rest=mu_nu_ini-N_nu_avg
 if rest>0.5:
     N_nu_avg+=1
-if test==1:
-    N_nu_avg=39
 
 ###create the pdf's for the neutrino signals
 ###
@@ -253,33 +245,6 @@ if channel_Erec==True:
             derec=x_edge[ii+1]-x_edge[ii]
             norm+=0.5*(p_margin[ii]+p_margin[ii+1])*derec
         Pb_noangle_ipl=interp1d(x_edge,p_margin/norm,kind='linear')
-
-    if test==1:
-        D_Erec=upper_threshold-E_thr
-        D_cos=2.
-        D_time=365.25
-
-        x_test=np.array([E_thr,E_thr,upper_threshold,upper_threshold])
-        y_test=np.array([-1.,1.,-1.,1.])
-
-        pdf_nu=9.54/(D_Erec*D_cos)*np.ones(4)
-        Pb_ipl=SmoothBivariateSpline(x_test,y_test,pdf_nu,kx=1,ky=1)
-    
-        pdf_margin=np.array([pdf_nu[0],pdf_nu[2]])
-        Pb_noangle_ipl=interp1d(np.array([E_thr,upper_threshold]),pdf_margin)
-
-        pdf_nu_t=interp1d(time_array_nu,1./D_time*np.ones(len(time_array_nu)),\
-                          kind='linear')
-
-        #E_test=np.arange(E_thr,upper_threshold,1.)
-        #theta_test=np.arange(-1.,1.,0.2)
-        #f=open('pdfs/test_nu.txt','w')
-        #f.close()
-        #for ii in range (len(E_test)):
-        #   for jj in range (len(theta_test)):
-        #       f=open('pdfs/test_nu.txt','a')
-        #       f.write(str(E_test[ii])+' '+str(theta_test[jj])\
-        #           +' '+str(float(Pb_ipl(E_test[ii],theta_test[jj])))+'\n')
 
 ###simulate neutrino events
 ###
@@ -386,46 +351,6 @@ for mm in range (len(m_DM_array)):
                 f_ipl=interp1d(x_edge,p_margin/norm,kind='linear')
                 f_array_noangle.append(f_ipl)
                     
-            ###Test interpolation
-            ###
-            #ee=np.linspace(E_thr,upper_threshold,100)
-            #plt.plot(ee,f_array_noangle[6](ee),'ro')
-            #plt.plot(ee,Pb_noangle_ipl(ee),'bo')
-            #plt.show()
- 
-            #name=basenamepdf+'_DM_'+str(m_DM_array[mm])+'_'+str(8)+'.txt'
-                #data=np.loadtxt(name)
-            #x_val=data[:,0]
-                #pdf_val=data[:,2]      
-            #ee=np.linspace(E_thr,upper_threshold,100)
-            #thth=-1.
-            #plt.plot(x_val,pdf_val,'bo')
-            #for ii in range (len(ee)):
-            #   plt.plot(ee[ii],f_array[8](ee[ii],thth),'ro')
-            #plt.yscale('log')
-            #plt.show()
- 
-    if test==1:
-        t0_f=float(t0)
-        t1_f=float(t1)-t0_f
-        t0_f=0.
-        t_edges=np.linspace(t0_f,t1_f,N_tt)
-        f_array,f_array_noangle=[],[]
-        for ii in range (N_tt):
-            pdf_dm=5.5/(D_Erec*D_cos)*np.ones(4)
-            x_test=np.array([E_thr,E_thr,upper_threshold,upper_threshold])
-            y_test=np.array([-1.,1.,-1.,1.])
-            f_ipl=SmoothBivariateSpline(x_test,y_test,pdf_dm,kx=1,ky=1)
-            f_array.append(f_ipl)
-            
-            pdf_dm=np.array([pdf_dm[0],pdf_dm[2]])
-            f_ipl=interp1d(np.array([E_thr,upper_threshold]),pdf_dm)
-            f_array_noangle.append(f_ipl)
- 
-        kk=0
-        pdf_array=5./D_time*np.ones(len(time_array_nu))
-        pdf_DM_t=interp1d(time_array_DM,pdf_array,kind='linear')
-
     for mass_N in M_det_array:
         if 1 == SENSITIVITY_SCAN:
             if(mass_N>900):
@@ -510,7 +435,7 @@ for mm in range (len(m_DM_array)):
                 Q_SB=[]
                 t_array_SB=[]
         
-                ###calculate expected dark matter events by multiplying with sigma
+                ###calculate expected dark matter events, multiply with sigma
                 ###
                 if test==0:
                     N_DM1=N_DM0*sigma[ss]
@@ -533,8 +458,8 @@ for mm in range (len(m_DM_array)):
                 N_DM_exp=N_DM
                 mu_DM=N_DM_exp
         
-                print ("%2E   %2E   %i        %i " % (m_DM_array[mm],\
-                                                      sigma[ss],N_DM_exp,N_nu_avg))
+                print ("%2E   %2E   %i        %i " % (\
+                        m_DM_array[mm], sigma[ss],N_DM_exp,N_nu_avg))
         
                 Q_B_angle,Q_B_erec=[],[]
                 Q_SB_angle,Q_SB_erec=[],[]
@@ -605,8 +530,6 @@ for mm in range (len(m_DM_array)):
                     NN_dsnb=np.sum(N_dsnb)
                     NN_tot=NN_solar+NN_atmo+NN_dsnb
         
-                    #print 1.*NN_solar/NN_tot,1.*NN_atmo/NN_tot,1.*NN_dsnb/NN_tot
-        
                     sample_prob_nu_B=np.zeros(N_sim)
                     t_array_solar,t_array_atmo,t_array_dsnb=[],[],[]
                     E_rec_array_solar,E_rec_array_atmo,E_rec_array_dsnb=[],[],[]
@@ -615,9 +538,7 @@ for mm in range (len(m_DM_array)):
                     ###simulate neutrino events
                     ###
                     if channel_time==True:
-        
                         prob_nu_B=np.zeros(NN_nu)
-        
                         ###if energy information is used, do proper simulation
                         ###
                         if channel_Erec==True:
@@ -630,7 +551,8 @@ for mm in range (len(m_DM_array)):
                             dsnb_length=max(10,min(int(1.*N_dsnb0*N_sim),\
                                              source_length))
                             if solar_length>1:
-                                t_array_solar, E_rec_array_solar, cos_array_solar=\
+                                t_array_solar, E_rec_array_solar,\
+                                cos_array_solar = \
                                     event_simulation.get_event_array(\
                                        NN_solar, solar_length, \
                                        t_src_solar_nu,\
@@ -639,7 +561,8 @@ for mm in range (len(m_DM_array)):
                             ###atmo
                             ###
                             if atmo_length>1:
-                                t_array_atmo, E_rec_array_atmo, cos_array_atmo =\
+                                t_array_atmo, E_rec_array_atmo,\
+                                cos_array_atmo =\
                                     event_simulation.get_event_array(\
                                        NN_atmo, atmo_length, \
                                        t_src_atmo_nu,\
@@ -648,7 +571,8 @@ for mm in range (len(m_DM_array)):
                             ###dsnb
                             ###
                             if dsnb_length>1:
-                                t_array_dsnb, E_rec_array_dsnb, cos_array_dsnb =\
+                                t_array_dsnb, E_rec_array_dsnb,\
+                                cos_array_dsnb =\
                                     event_simulation.get_event_array(\
                                        NN_dsnb, dsnb_length, \
                                        t_src_dsnb_nu,\
@@ -713,76 +637,21 @@ for mm in range (len(m_DM_array)):
                                 N_nu_dsnb=np.where(N_nu_dsnb<0.,0.,N_nu_dsnb)
                                 mu_nu+=N_nu_dsnb
                         
-                        if test==1:
-                            n_nu_arr=N_nu_avg*np.ones(N_sim,dtype=int)
-        
-                            E_rec_nu=2.*E_thr*np.ones(N_sim*N_nu_avg)
-                            cos_nu=0.5*np.ones(N_sim*N_nu_avg)
-                            t_nu=100.*np.ones(N_sim*N_nu_avg)
-                            mu_nu=N_nu_avg*np.ones((N_sim,N_Q))
-                            NN_nu=N_nu_avg*N_sim
-        
                         mu_nu=np.hstack(mu_nu)
                         n_nu_arr=np.tile(n_nu_arr,N_Q)
         
                     
                     if channel_time==True:
                         if channel_Erec==True:
-                            dif=np.zeros((len(t_edges),len(t_nu)))
-                            for ii in range(len(t_edges)):
-                                dif[ii]=abs(t_edges[ii]-t_nu)
-                            dif=np.reshape(dif,(len(t_nu),len(t_edges)))
-                            id1_nu=np.argmin(dif,axis=1)
-                            t0_nu=t_edges[id1_nu]
-                            id2_nu=np.where(id1_nu==N_tt-1,id1_nu-1,0)
-                            id2_nu=np.where(id1_nu==0,1,id2_nu)
-                            
-                            id2_nu_tmp1=np.where(id2_nu==0,id1_nu+1,id2_nu)
-                            t1_nu=t_edges[id2_nu_tmp1]
-                            
-                            id2_nu_tmp2=np.where(id2_nu==0,id1_nu-1,id2_nu)
-                            t2_nu=t_edges[id2_nu_tmp2]
-                            
-                            id2_nu=np.where(abs(t1_nu-t_nu)>abs(t2_nu-t_nu),\
-                                                id2_nu_tmp2,id2_nu)
-                            id2_nu=np.where(abs(t1_nu-t_nu)<abs(t2_nu-t_nu),\
-                                                id2_nu_tmp1,id2_nu)
-                            d1=abs(t_nu-t_edges[id1_nu])
-                            d2=abs(t_nu-t_edges[id2_nu])
-                            pdf1,pdf2=np.zeros(NN_nu),np.zeros(NN_nu)
-                            for ii in range (N_tt):
-                                pdf1=np.where(id1_nu==ii,\
-                                        f_array[ii].ev(E_rec_nu,cos_nu),pdf1)
-                                pdf2=np.where(id2_nu==ii,\
-                                        f_array[ii].ev(E_rec_nu,cos_nu),pdf2)
-                            prob_nu_B_angle=Pb_ipl.ev(E_rec_nu,cos_nu)
-                            prob_nu_S_angle=pdf1+d1/(d1+d2)*(pdf2-pdf1)
-                            for ii in range (N_tt):
-                                pdf1=np.where(id1_nu==ii,\
-                                        f_array_noangle[ii](E_rec_nu),pdf1)
-                                pdf2=np.where(id2_nu==ii,\
-                                        f_array_noangle[ii](E_rec_nu),pdf2)
-                            prob_nu_B_erec=Pb_noangle_ipl(E_rec_nu)
-                            prob_nu_S_erec=pdf1+d1/(d1+d2)*(pdf2-pdf1)
-        
-                        prob_nu_S_time=pdf_DM_t(t_nu)
-                        prob_nu_B_time=pdf_nu_t(t_nu)
-        
-                        prob_nu_S_time=np.tile(prob_nu_S_time,N_Q)
-                        prob_nu_B_time=np.tile(prob_nu_B_time,N_Q)
-                        prob_nu_S_angle=np.tile(prob_nu_S_angle,N_Q)
-                        prob_nu_B_angle=np.tile(prob_nu_B_angle,N_Q)
-                        prob_nu_S_erec=np.tile(prob_nu_S_erec,N_Q)
-                        prob_nu_B_erec=np.tile(prob_nu_B_erec,N_Q)
-        
-                        n_split=np.cumsum(n_nu_arr)
-                        n_split=np.delete(n_split,-1)
-                        prob_nu_B_time=np.split(prob_nu_B_time,n_split)
-                        prob_nu_S_time=np.split(prob_nu_S_time,n_split)
-                        prob_nu_B_angle=np.split(prob_nu_B_angle,n_split)
-                        prob_nu_S_angle=np.split(prob_nu_S_angle,n_split)
-                        prob_nu_B_erec=np.split(prob_nu_B_erec,n_split)
-                        prob_nu_S_erec=np.split(prob_nu_S_erec,n_split)
+                            prob_nu_B_time, prob_nu_S_time,\
+                            prob_nu_B_erec, prob_nu_S_erec,\
+                            prob_nu_B_angle, prob_nu_S_angle =\
+                            statistic.evaluate_Q( 
+                                t_edges, t_nu, E_rec_nu, cos_nu,\
+                                f_array, Pb_ipl,\
+                                f_array_noangle, Pb_noangle_ipl,\
+                                pdf_DM_t, pdf_nu_t,\
+                                NN_nu, n_nu_arr, N_Q, N_tt)
                    
                         QBrangeAngle = []
                         QBrangeErec = []
@@ -811,7 +680,16 @@ for mm in range (len(m_DM_array)):
                                         bins = binsQBAngle )[0]
                                 Q_B_erec_histo  += np.histogram( Q_B_erec,\
                                         bins = binsQBErec )[0]
-    
+
+                        del prob_nu_B_time
+                        del prob_nu_S_time
+                        del prob_nu_B_angle
+                        del prob_nu_S_angle
+                        del prob_nu_B_erec
+                        del prob_nu_S_erec
+                        del Q_B_angle
+                        del Q_B_erec
+
                         if( 0 == FIX_BIN_SIZES_B):
                             minR = min(QBrangeAngle)
                             maxR = max(QBrangeAngle)
@@ -832,16 +710,6 @@ for mm in range (len(m_DM_array)):
                                 bins = binsQBErec )[0]
                             FIX_BIN_SIZES_B = 1
     
-    
-                        del prob_nu_B_time
-                        del prob_nu_S_time
-                        del prob_nu_B_angle
-                        del prob_nu_S_angle
-                        del prob_nu_B_erec
-                        del prob_nu_S_erec
-                        del Q_B_angle
-                        del Q_B_erec
-        
                         if print_info==1:
                             print 'DONE!'
         
@@ -897,9 +765,6 @@ for mm in range (len(m_DM_array)):
                         n_array_DM[ii]=int(sum(tmp[ii]))
                     n_nu_arr=NN_SB-n_array_DM
                     
-                    if test==1:
-                        n_array_DM=N_DM_exp*np.ones(N_sim,dtype=int)
-        
                     if channel_time==True:
                         t_array_DM,E_rec_array_DM,cos_array_DM=[],[],[]
                         while ((len(t_array_DM))<NN_DM):
@@ -929,7 +794,8 @@ for mm in range (len(m_DM_array)):
                             ###solar
                             ###
                             if solar_length>1:
-                                t_array_solar, E_rec_array_solar, cos_array_solar=\
+                                t_array_solar, E_rec_array_solar,\
+                                cos_array_solar = \
                                     event_simulation.get_event_array(\
                                        NN_solar, solar_length, \
                                        t_src_solar_nu,\
@@ -938,7 +804,8 @@ for mm in range (len(m_DM_array)):
                             ###atmo
                             ###
                             if atmo_length>1:
-                                t_array_atmo, E_rec_array_atmo, cos_array_atmo =\
+                                t_array_atmo, E_rec_array_atmo,\
+                                cos_array_atmo =\
                                     event_simulation.get_event_array(\
                                        NN_atmo, atmo_length, \
                                        t_src_atmo_nu,\
@@ -947,7 +814,8 @@ for mm in range (len(m_DM_array)):
                             ###dsnb
                             ###
                             if dsnb_length>1:
-                                t_array_dsnb, E_rec_array_dsnb, cos_array_dsnb =\
+                                t_array_dsnb, E_rec_array_dsnb,\
+                                cos_array_dsnb =\
                                     event_simulation.get_event_array(\
                                        NN_dsnb, dsnb_length, \
                                        t_src_dsnb_nu,\
@@ -1001,28 +869,21 @@ for mm in range (len(m_DM_array)):
                     for ii in range (9):
                         if N_sun_arr[ii]>0.:
                             N_nu_solar=np.random.normal(N_sun_arr[ii],\
-                                            nu_sigma[0]*N_sun_arr[ii],(N_sim,N_Q))
+                                       nu_sigma[0]*N_sun_arr[ii],(N_sim,N_Q))
                             N_nu_solar=np.where(N_nu_solar<0.,0.,N_nu_solar)
                             mu_nu+=N_nu_solar
                     for ii in range (4):
                         if N_atmo_arr[ii]>0.:
                             N_nu_atmo=np.random.normal(N_atmo_arr[ii],\
-                                            nu_sigma[1]*N_atmo_arr[ii],(N_sim,N_Q))
+                                      nu_sigma[1]*N_atmo_arr[ii],(N_sim,N_Q))
                             N_nu_atmo=np.where(N_nu_atmo<0.,0.,N_nu_atmo)
                             mu_nu+=N_nu_atmo
                     for ii in range (3):
                         if N_dsnb_arr[ii]>0.:
                             N_nu_dsnb=np.random.normal(N_dsnb_arr[ii],\
-                                            nu_sigma[2]*N_dsnb_arr[ii],(N_sim,N_Q))
+                                      nu_sigma[2]*N_dsnb_arr[ii],(N_sim,N_Q))
                             N_nu_dsnb=np.where(N_nu_dsnb<0.,0.,N_nu_dsnb)
                             mu_nu+=N_nu_dsnb
-                    if test==1:
-                        n_nu_arr=N_nu_avg*np.ones(N_sim,dtype=int)
-                        E_rec_nu=2.*E_thr*np.ones(N_sim*N_nu_avg)
-                        cos_nu=0.5*np.ones(N_sim*N_nu_avg)
-                        t_nu=100.*np.ones(N_sim*N_nu_avg)
-                        mu_nu=N_nu_avg*np.ones((N_sim,N_Q))
-                        NN_nu=N_nu_avg*N_sim
             
                     mu_nu=np.hstack(mu_nu)
                     n_nu_arr=np.tile(n_nu_arr,N_Q)
@@ -1049,65 +910,15 @@ for mm in range (len(m_DM_array)):
                         prob_DM_B=np.ones(NN_DM)
                         prob_DM_SB=np.ones(NN_DM)
                         if channel_Erec==True:
-                            dif=np.zeros((len(t_edges),len(t_array_DM)))
-                            for ii in range(len(t_edges)):
-                                dif[ii]=abs(t_edges[ii]-t_array_DM)
-                            dif=np.reshape(dif,(len(t_array_DM),len(t_edges)))
-                            id1_DM=np.argmin(dif,axis=1)
-                            t0_DM=t_edges[id1_DM]
-                            id2_DM=np.where(id1_DM==N_tt-1,id1_DM-1,0)
-                            id2_DM=np.where(id1_DM==0,1,id2_DM)
-                            
-                            id2_DM_tmp1=np.where(id2_DM==0,id1_DM+1,id2_DM)
-                            t1_DM=t_edges[id2_DM_tmp1]
-                            
-                            id2_DM_tmp2=np.where(id2_DM==0,id1_DM-1,id2_DM)
-                            t2_DM=t_edges[id2_DM_tmp2]
-                            
-                            id2_DM=np.where(abs(t1_DM-t_array_DM)>\
-                                    abs(t2_DM-t_array_DM),id2_DM_tmp2,id2_DM)
-                            id2_DM=np.where(abs(t1_DM-t_array_DM)<\
-                                    abs(t2_DM-t_array_DM),id2_DM_tmp1,id2_DM)
-                            d1=abs(t_array_DM-t_edges[id1_DM])
-                            d2=abs(t_array_DM-t_edges[id2_DM])
-                            pdf1,pdf2=np.zeros(NN_DM),np.zeros(NN_DM)
-                            #if channel_angle==True:
-                            for ii in range (N_tt):
-                                pdf1=np.where(id1_DM==ii,f_array[ii].ev(\
-                                            E_rec_array_DM,cos_array_DM),pdf1)
-                                pdf2=np.where(id2_DM==ii,f_array[ii].ev(\
-                                            E_rec_array_DM,cos_array_DM),pdf2)
-                            prob_DM_S_angle=pdf1+d1/(d1+d2)*(pdf2-pdf1)
-                            prob_DM_B_angle=Pb_ipl.ev(E_rec_array_DM,cos_array_DM)
-        
-                            #if channel_angle==False:
-                            for ii in range (N_tt):
-                                pdf1=np.where(id1_DM==ii,f_array_noangle[ii](\
-                                                        E_rec_array_DM),pdf1)
-                                pdf2=np.where(id2_DM==ii,f_array_noangle[ii](\
-                                                        E_rec_array_DM),pdf2)
-                            prob_DM_S_erec=pdf1+d1/(d1+d2)*(pdf2-pdf1)
-                            prob_DM_B_erec=Pb_noangle_ipl(E_rec_array_DM)
-        
-                        prob_DM_S_time=pdf_DM_t(t_array_DM)
-                        prob_DM_B_time=pdf_nu_t(t_array_DM)
-        
-                        prob_DM_S_time=np.tile(prob_DM_S_time,N_Q)
-                        prob_DM_B_time=np.tile(prob_DM_B_time,N_Q)
-                        prob_DM_S_angle=np.tile(prob_DM_S_angle,N_Q)
-                        prob_DM_B_angle=np.tile(prob_DM_B_angle,N_Q)
-                        prob_DM_S_erec=np.tile(prob_DM_S_erec,N_Q)
-                        prob_DM_B_erec=np.tile(prob_DM_B_erec,N_Q)
-        
-                        n_split=np.cumsum(n_array_DM)
-                        n_split=np.delete(n_split,-1)
-                        prob_DM_B_time=np.split(prob_DM_B_time,n_split)
-                        prob_DM_S_time=np.split(prob_DM_S_time,n_split)
-                        prob_DM_B_angle=np.split(prob_DM_B_angle,n_split)
-                        prob_DM_S_angle=np.split(prob_DM_S_angle,n_split)
-                        prob_DM_B_erec=np.split(prob_DM_B_erec,n_split)
-                        prob_DM_S_erec=np.split(prob_DM_S_erec,n_split)
-        
+                            prob_DM_B_time, prob_DM_S_time,\
+                            prob_DM_B_erec, prob_DM_S_erec,\
+                            prob_DM_B_angle, prob_DM_S_angle =\
+                            statistic.evaluate_Q( t_edges, \
+                                t_array_DM, E_rec_array_DM, cos_array_DM,\
+                                f_array, Pb_ipl,\
+                                f_array_noangle, Pb_noangle_ipl,\
+                                pdf_DM_t, pdf_nu_t,\
+                                NN_DM, n_array_DM, N_Q, N_tt)
                         
                         if print_info==1:
                             print 'DONE!'
@@ -1129,62 +940,15 @@ for mm in range (len(m_DM_array)):
                     if channel_time==True:
                         prob_nu_SB=np.ones(NN_nu)
                         if channel_Erec==True:
-                            dif=np.zeros((len(t_edges),len(t_nu)))
-                            for ii in range(len(t_edges)):
-                                dif[ii]=abs(t_edges[ii]-t_nu)
-                            dif=np.reshape(dif,(len(t_nu),len(t_edges)))
-                            id1_nu=np.argmin(dif,axis=1)
-                            t0_nu=t_edges[id1_nu]
-                            id2_nu=np.where(id1_nu==N_tt-1,id1_nu-1,0)
-                            id2_nu=np.where(id1_nu==0,1,id2_nu)
-                            
-                            id2_nu_tmp1=np.where(id2_nu==0,id1_nu+1,id2_nu)
-                            t1_nu=t_edges[id2_nu_tmp1]
-                            
-                            id2_nu_tmp2=np.where(id2_nu==0,id1_nu-1,id2_nu)
-                            t2_nu=t_edges[id2_nu_tmp2]
-                            
-                            id2_nu=np.where(abs(t1_nu-t_nu)>\
-                                    abs(t2_nu-t_nu),id2_nu_tmp2,id2_nu)
-                            id2_nu=np.where(abs(t1_nu-t_nu)<\
-                                    abs(t2_nu-t_nu),id2_nu_tmp1,id2_nu)
-                            d1=abs(t_nu-t_edges[id1_nu])
-                            d2=abs(t_nu-t_edges[id2_nu])
-                            pdf1,pdf2=np.zeros(NN_nu),np.zeros(NN_nu)
-                            for ii in range (N_tt):
-                                pdf1=np.where(id1_nu==ii,f_array[ii].ev(\
-                                                E_rec_nu,cos_nu),pdf1)
-                                pdf2=np.where(id2_nu==ii,f_array[ii].ev(\
-                                                E_rec_nu,cos_nu),pdf2)
-                            prob_nu_B_angle=Pb_ipl.ev(E_rec_nu,cos_nu)
-                            prob_nu_S_angle=pdf1+d1/(d1+d2)*(pdf2-pdf1)
-        
-                            for ii in range (N_tt):
-                                pdf1=np.where(id1_nu==ii,f_array_noangle[ii](\
-                                                        E_rec_nu),pdf1)
-                                pdf2=np.where(id2_nu==ii,f_array_noangle[ii](\
-                                                        E_rec_nu),pdf2)
-                            prob_nu_B_erec=Pb_noangle_ipl(E_rec_nu)
-                            prob_nu_S_erec=pdf1+d1/(d1+d2)*(pdf2-pdf1)
-        
-                        prob_nu_S_time=pdf_DM_t(t_nu)
-                        prob_nu_B_time=pdf_nu_t(t_nu)
-        
-                        prob_nu_S_time=np.tile(prob_nu_S_time,N_Q)
-                        prob_nu_B_time=np.tile(prob_nu_B_time,N_Q)
-                        prob_nu_S_angle=np.tile(prob_nu_S_angle,N_Q)
-                        prob_nu_B_angle=np.tile(prob_nu_B_angle,N_Q)
-                        prob_nu_S_erec=np.tile(prob_nu_S_erec,N_Q)
-                        prob_nu_B_erec=np.tile(prob_nu_B_erec,N_Q)
-        
-                        n_split=np.cumsum(n_nu_arr)
-                        n_split=np.delete(n_split,-1)
-                        prob_nu_B_time=np.split(prob_nu_B_time,n_split)
-                        prob_nu_S_time=np.split(prob_nu_S_time,n_split)
-                        prob_nu_B_angle=np.split(prob_nu_B_angle,n_split)
-                        prob_nu_S_angle=np.split(prob_nu_S_angle,n_split)
-                        prob_nu_B_erec=np.split(prob_nu_B_erec,n_split)
-                        prob_nu_S_erec=np.split(prob_nu_S_erec,n_split)
+                            prob_nu_B_time, prob_nu_S_time,\
+                            prob_nu_B_erec, prob_nu_S_erec,\
+                            prob_nu_B_angle, prob_nu_S_angle =\
+                            statistic.evaluate_Q( 
+                                t_edges, t_nu, E_rec_nu, cos_nu,\
+                                f_array, Pb_ipl,\
+                                f_array_noangle, Pb_noangle_ipl,\
+                                pdf_DM_t, pdf_nu_t,\
+                                NN_nu, n_nu_arr, N_Q, N_tt)
             
                         if print_info==1:
                             print 'DONE!'
@@ -1297,7 +1061,8 @@ for mm in range (len(m_DM_array)):
                 f=open(filename_dm,'a')
                 f.write(str(M_det)+ ' '+str(N_nu_exp)+' '+\
                         str(m_DM_array[mm])+' '+str(sigma[ss])+\
-                        ' '+str(N_DM_exp)+' '+str(cl_angle)+' '+str(cl_erec)+'\n')
+                        ' '+str(N_DM_exp)+' '+str(cl_angle)+\
+                        ' '+str(cl_erec)+'\n')
                 f.close()
             
             if cl_angle<0.00001 and mem1==0:#and cl_erec<0.00001 and mem1==0:

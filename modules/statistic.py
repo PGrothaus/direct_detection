@@ -2,6 +2,68 @@ from math import *
 from scipy import *
 import numpy as np
 
+def evaluate_Q( t_edges, t_nu, E_rec_nu, cos_nu, f_array, Pb_ipl,\
+              f_array_noangle, Pb_noangle_ipl, pdf_DM_t, pdf_nu_t,\
+              NN_nu, n_nu_arr, N_Q, N_tt):
+    dif=np.zeros((len(t_edges),len(t_nu)))
+    for ii in range(len(t_edges)):
+        dif[ii]=abs(t_edges[ii]-t_nu)
+    dif=np.reshape(dif,(len(t_nu),len(t_edges)))
+    id1_nu=np.argmin(dif,axis=1)
+    t0_nu=t_edges[id1_nu]
+    id2_nu=np.where(id1_nu==N_tt-1,id1_nu-1,0)
+    id2_nu=np.where(id1_nu==0,1,id2_nu)
+    
+    id2_nu_tmp1=np.where(id2_nu==0,id1_nu+1,id2_nu)
+    t1_nu=t_edges[id2_nu_tmp1]
+    
+    id2_nu_tmp2=np.where(id2_nu==0,id1_nu-1,id2_nu)
+    t2_nu=t_edges[id2_nu_tmp2]
+    
+    id2_nu=np.where(abs(t1_nu-t_nu)>abs(t2_nu-t_nu),\
+                        id2_nu_tmp2,id2_nu)
+    id2_nu=np.where(abs(t1_nu-t_nu)<abs(t2_nu-t_nu),\
+                        id2_nu_tmp1,id2_nu)
+    d1=abs(t_nu-t_edges[id1_nu])
+    d2=abs(t_nu-t_edges[id2_nu])
+    pdf1,pdf2=np.zeros(NN_nu),np.zeros(NN_nu)
+    for ii in range (N_tt):
+        pdf1=np.where(id1_nu==ii,\
+                f_array[ii].ev(E_rec_nu,cos_nu),pdf1)
+        pdf2=np.where(id2_nu==ii,\
+                f_array[ii].ev(E_rec_nu,cos_nu),pdf2)
+    prob_nu_B_angle=Pb_ipl.ev(E_rec_nu,cos_nu)
+    prob_nu_S_angle=pdf1+d1/(d1+d2)*(pdf2-pdf1)
+    for ii in range (N_tt):
+        pdf1=np.where(id1_nu==ii,\
+                f_array_noangle[ii](E_rec_nu),pdf1)
+        pdf2=np.where(id2_nu==ii,\
+                f_array_noangle[ii](E_rec_nu),pdf2)
+    prob_nu_B_erec=Pb_noangle_ipl(E_rec_nu)
+    prob_nu_S_erec=pdf1+d1/(d1+d2)*(pdf2-pdf1)
+
+    prob_nu_S_time=pdf_DM_t(t_nu)
+    prob_nu_B_time=pdf_nu_t(t_nu)
+
+    prob_nu_S_time=np.tile(prob_nu_S_time,N_Q)
+    prob_nu_B_time=np.tile(prob_nu_B_time,N_Q)
+    prob_nu_S_angle=np.tile(prob_nu_S_angle,N_Q)
+    prob_nu_B_angle=np.tile(prob_nu_B_angle,N_Q)
+    prob_nu_S_erec=np.tile(prob_nu_S_erec,N_Q)
+    prob_nu_B_erec=np.tile(prob_nu_B_erec,N_Q)
+
+    n_split=np.cumsum(n_nu_arr)
+    n_split=np.delete(n_split,-1)
+    prob_nu_B_time = np.split(prob_nu_B_time,n_split)
+    prob_nu_S_time = np.split(prob_nu_S_time,n_split)
+    prob_nu_B_angle = np.split(prob_nu_B_angle,n_split)
+    prob_nu_S_angle = np.split(prob_nu_S_angle,n_split)
+    prob_nu_B_erec = np.split(prob_nu_B_erec,n_split)
+    prob_nu_S_erec = np.split(prob_nu_S_erec,n_split)
+
+    return prob_nu_B_time, prob_nu_S_time, prob_nu_B_erec,  prob_nu_S_erec,\
+           prob_nu_B_angle, prob_nu_S_angle
+
 def get_cl(hist_SB, hist_B, Q_grid_SB, Q_grid_B, N_bins, steps, accuracy):
 
     dqSB = Q_grid_SB[4] - Q_grid_SB[3]
