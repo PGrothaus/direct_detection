@@ -47,7 +47,7 @@ rnd.seed()
 
 ###flux uncertainties
 ### (extrapolated ten years)
-nu_sigma=np.array([0.08,0.1,0.1])#in fraction of N
+nu_sigma=np.array([0.2,0.5,0.5])#in fraction of N
 
 ###Choose values for simulation
 ###
@@ -57,7 +57,7 @@ accuracy=0.0075         #amount by how much both Q_pdf integrals
                         #are required to be similar when calculating
                         #the overlap
 
-factor=1               #num of loops when generating the toy models/events
+factor=10               #num of loops when generating the toy models/events
 ###For the pdf's:
 ###
 N_tt=10                 #num of lookup tables for DM, i.e. time bins
@@ -68,19 +68,16 @@ N_min_DM=10000          #num of created events to create 2d pdf dark matter
 
 ###For the pseudo experiments:
 ###
-source_length=5000      #number of events in event pool
+source_length=10000      #number of events in event pool
                         #total pool size = factor * source_length
-N_Q = 1                #num of times to vary the fluxes when evaluating Q
+N_Q = 10                #num of times to vary the fluxes when evaluating Q
                         #important for neutrino flux uncertainties:
                         #we have to vary the expectations
-N_sim = 250            #num of pseudo experiments generated in simulation
+N_sim = 250             #num of pseudo experiments generated in simulation
                         #total number of pseudo experiments = 
                         #factor * N_sim * N_Q
 
-SENSITIVITY_SCAN = 0
-
-mode_max_Mdet=False
-if mode_max_Mdet==True: gain_direction=True
+SENSITIVITY_SCAN = 1
 
 ###choose detector set-up
 ### (choose further parameters in constants.py)
@@ -88,7 +85,7 @@ if mode_max_Mdet==True: gain_direction=True
 M_det0=10.e6#g
 
 if(1 == SENSITIVITY_SCAN):
-    M_det_array = np.array( [50.] )
+    M_det_array = np.array( [10., 50., 100., 500., 1000., 5000., 10000.] )
     M_det0 = 1.e6
 else:
     M_det_array = np.array( [M_det0] )
@@ -100,9 +97,9 @@ t1_f=float(t1)-float(t0)
 
 ###specify mass and cross section range
 ###
-m_DM_array=np.array([6., 10.])
+m_DM_array=np.array( [1000.] )
 sigma=np.logspace(-40,-52, 120)
-filename_dm='testrun.txt'
+filename_dm='CF4_sens_6GeV_newStat_1000GeV.txt'
 filename_dm = 'output/' + filename_dm
 f=open(filename_dm,'w')
 f.close()
@@ -133,7 +130,7 @@ if test==0:
     print 'NEUTRINOS'
     print ''
     print 'creating lookup tables...'
-    #create_all_neutrino_lookuptables(Npoints=200,Nsteps=500)
+    #create_all_neutrino_lookuptables(Npoints=500,Nsteps=1000)
     print '         DONE!'
     print ''
     print 'calculating expected neutrino events...'
@@ -368,27 +365,26 @@ for mm in range (len(m_DM_array)):
  
             ###marginalise over the angle
             ### (if only recoil information should be used)
-            if channel_angle==False or gain_direction==True:
-                f_array_noangle=[]
-                for tt in range (N_tt):
-                    name=basenamepdf+'_DM_'+str(m_DM_array[mm])+'_'+\
-                                            str(tt)+'.txt'
-                    data=np.loadtxt(name)
-                    pdf_val=data[:,2]
-                    pdf_val=np.reshape(pdf_val,(N_erec-1,N_theta-1))
-                    p_margin=[]
-                    for ii in range(len(x_edge)):
-                        p_margin_tmp=0.
-                        for jj in range (len(y_edge)-1):
-                            p_margin_tmp+=0.5*\
-                                    (pdf_val[ii][jj]+pdf_val[ii][jj+1])*dtheta
-                        p_margin.append(p_margin_tmp)
-                    norm=0.
-                    for ii in range (len(x_edge)-1):
-                        derec=x_edge[ii+1]-x_edge[ii]
-                        norm+=0.5*(p_margin[ii]+p_margin[ii+1])*derec
-                    f_ipl=interp1d(x_edge,p_margin/norm,kind='linear')
-                    f_array_noangle.append(f_ipl)
+            f_array_noangle=[]
+            for tt in range (N_tt):
+                name=basenamepdf+'_DM_'+str(m_DM_array[mm])+'_'+\
+                                        str(tt)+'.txt'
+                data=np.loadtxt(name)
+                pdf_val=data[:,2]
+                pdf_val=np.reshape(pdf_val,(N_erec-1,N_theta-1))
+                p_margin=[]
+                for ii in range(len(x_edge)):
+                    p_margin_tmp=0.
+                    for jj in range (len(y_edge)-1):
+                        p_margin_tmp+=0.5*\
+                                (pdf_val[ii][jj]+pdf_val[ii][jj+1])*dtheta
+                    p_margin.append(p_margin_tmp)
+                norm=0.
+                for ii in range (len(x_edge)-1):
+                    derec=x_edge[ii+1]-x_edge[ii]
+                    norm+=0.5*(p_margin[ii]+p_margin[ii+1])*derec
+                f_ipl=interp1d(x_edge,p_margin/norm,kind='linear')
+                f_array_noangle.append(f_ipl)
                     
             ###Test interpolation
             ###
@@ -432,6 +428,15 @@ for mm in range (len(m_DM_array)):
 
     for mass_N in M_det_array:
         if 1 == SENSITIVITY_SCAN:
+            if(mass_N>900):
+                N_sim  = 25
+                N_Q    = 10
+                factor = 40
+            if(mass_N>9000):
+                N_sim  = 5
+                N_Q    = 5
+                factor = 500
+
             M_det = M_det0 * mass_N / mu_nu_ini
             time_array_nu,rate_array_nu,dt_nu,N_sun_arr,N_atmo_arr,N_dsnb_arr=\
                 tot_rate_nu(M_det,E_thr,t0,t1,steps=100)
@@ -808,12 +813,19 @@ for mm in range (len(m_DM_array)):
                                         bins = binsQBErec )[0]
     
                         if( 0 == FIX_BIN_SIZES_B):
-                            binsQBAngle = np.linspace(\
-                                min( QBrangeAngle ), max( QBrangeAngle ),\
-                                N_bins)
-                            binsQBErec = np.linspace(\
-                                min(QBrangeErec), max(QBrangeErec),\
-                                N_bins)
+                            minR = min(QBrangeAngle)
+                            maxR = max(QBrangeAngle)
+                            width = 0.5 * math.fabs( maxR - minR )
+                            minR = minR - width
+                            maxR = maxR + width
+                            binsQBAngle = np.linspace( minR, maxR, N_bins )
+
+                            minR = min(QBrangeErec)
+                            maxR = max(QBrangeErec)
+                            width = 0.5 * math.fabs( maxR - minR )
+                            minR = minR - width
+                            maxR = maxR + width
+                            binsQBErec = np.linspace( minR, maxR, N_bins )
                             Q_B_angle_histo = np.histogram( QBrangeAngle,\
                                 bins = binsQBAngle )[0]
                             Q_B_erec_histo  = np.histogram( QBrangeErec,\
@@ -1229,17 +1241,24 @@ for mm in range (len(m_DM_array)):
     
                             else:
                                 Q_SB_angle_histo += np.histogram( Q_SB_angle,\
-                                        bins = binsQBAngle )[0]
+                                        bins = binsQSBAngle )[0]
                                 Q_SB_erec_histo  += np.histogram( Q_SB_erec,\
-                                        bins = binsQBErec )[0]
+                                        bins = binsQSBErec )[0]
     
                         if( 0 == FIX_BIN_SIZES_SB):
-                            binsQSBAngle = np.linspace(\
-                                min(QSBrangeAngle), max(QSBrangeAngle),\
-                                N_bins)
-                            binsQSBErec = np.linspace(\
-                                min(QSBrangeErec), max(QSBrangeErec),\
-                                N_bins)
+                            minR = min(QSBrangeAngle)
+                            maxR = max(QSBrangeAngle)
+                            width = 0.5 * math.fabs( maxR - minR )
+                            minR = minR - width
+                            maxR = maxR + width
+                            binsQSBAngle = np.linspace( minR, maxR, N_bins )
+
+                            minR = min(QSBrangeErec)
+                            maxR = max(QSBrangeErec)
+                            width = 0.5 * math.fabs( maxR - minR )
+                            minR = minR - width
+                            maxR = maxR + width
+                            binsQSBErec = np.linspace( minR, maxR, N_bins)
                             Q_SB_angle_histo = np.histogram( QSBrangeAngle,\
                                 bins = binsQSBAngle )[0]
                             Q_SB_erec_histo  = np.histogram( QSBrangeErec,\
