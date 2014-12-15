@@ -8,8 +8,12 @@ def evaluate_Q( t_edges, t_nu, E_rec_nu, cos_nu, f_array, Pb_ipl,\
     dif=np.zeros((len(t_edges),len(t_nu)))
     for ii in range(len(t_edges)):
         dif[ii]=abs(t_edges[ii]-t_nu)
-    dif=np.reshape(dif,(len(t_nu),len(t_edges)))
-    id1_nu=np.argmin(dif,axis=1)
+###Bug removed!
+###Wrong calculation of time seperation
+#    dif=np.reshape(dif,(len(t_nu),len(t_edges)))
+
+    id1_nu=np.argmin(dif,axis=0)
+
     t0_nu=t_edges[id1_nu]
     id2_nu=np.where(id1_nu==N_tt-1,id1_nu-1,0)
     id2_nu=np.where(id1_nu==0,1,id2_nu)
@@ -69,8 +73,12 @@ def get_cl(hist_SB, hist_B, Q_grid_SB, Q_grid_B, N_bins, steps, accuracy):
     dqSB = Q_grid_SB[4] - Q_grid_SB[3]
     dqB = Q_grid_B[4] - Q_grid_B[3]
 
+    print dqB, dqSB
+
     normSB = np.sum( dqSB * hist_SB )
     normB  = np.sum( dqB  * hist_B )
+    
+    print normB, normSB
 
     hist_SB = hist_SB/normSB
     hist_B = hist_B/normB
