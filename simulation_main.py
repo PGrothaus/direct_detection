@@ -15,7 +15,7 @@ from modules.create_lookupfiles import *
 import modules.statistic as statistic
 import modules.event_simulation as event_simulation
 #If libastro is locally installed, add it to the path variable
-sys.path.append('/home/pg3/Packages/pyephem-3.7.5.3/libastro-3.7.5')
+#sys.path.append('/home/pg3/Packages/pyephem-3.7.5.3/libastro-3.7.5')
 ##############################################################################
 
 
@@ -41,46 +41,45 @@ rnd.seed()
 
 ###flux uncertainties
 ### (extrapolated ten years)
-nu_sigma=np.array([0.2,0.5,0.5])#in fraction of N
+nu_sigma=np.array([0.0001,0.0001,0.0001])#in fraction of N
 
 ###Choose values for simulation
 ###
 steps=4000              #num of steps for integrating the pdf's
-N_bins=50               #num of bins for distributions of test-statistic
-accuracy=0.0075         #amount by how much both Q_pdf integrals 
+N_bins=75               #num of bins for distributions of test-statistic
+accuracy=0.0005         #amount by how much both Q_pdf integrals 
                         #are required to be similar when calculating
                         #the overlap
 
-factor=2               #num of loops when generating the toy models/events
+factor=10               #num of loops when generating the toy models/events
 ###For the pdf's:
 ###
 N_tt=10                 #num of lookup tables for DM, i.e. time bins
-N_min_nu=15000          #num of created events to create 2d pdf neutrinos
-N_min_DM=10000          #num of created events to create 2d pdf dark matter
+N_min_nu=150000          #num of created events to create 2d pdf neutrinos
+N_min_DM=100000          #num of created events to create 2d pdf dark matter
                         #total number of events to generate 2d pdf=
                         #factor * N_min_(nu/DM)
 
 ###For the pseudo experiments:
 ###
-source_length=100      #number of events in event pool
+source_length=10000      #number of events in event pool
                         #total pool size = factor * source_length
-N_Q = 10                #num of times to vary the fluxes when evaluating Q
+N_Q = 1                #num of times to vary the fluxes when evaluating Q
                         #important for neutrino flux uncertainties:
                         #we have to vary the expectations
-N_sim = 25             #num of pseudo experiments generated in simulation
+N_sim = 1250             #num of pseudo experiments generated in simulation
                         #total number of pseudo experiments = 
                         #factor * N_sim * N_Q
 
-SENSITIVITY_SCAN = 1
-
-###choose detector set-up
-### (choose further parameters in constants.py)
-### (keep observation time unchanged)
 M_det0=10.e6#g
 
+SENSITIVITY_SCAN = 1
+
 if(1 == SENSITIVITY_SCAN):
-    M_det_array = np.array( [10., 50., 100., 500., 1000., 5000., 10000.] )
-    M_det0 = 1.e6
+    #quantify the number of neutrino events
+    M_det_array = np.array( [10., 50., 100., 500., 1000., 5000.,\
+                             10000., 50000., 100000.] ) 
+    M_det0 = 1.e6#leave this unchanged! Used for rescaling
 else:
     M_det_array = np.array( [M_det0] )
 
@@ -124,7 +123,7 @@ if test==0:
     print 'NEUTRINOS'
     print ''
     print 'creating lookup tables...'
-    #create_all_neutrino_lookuptables(Npoints=500,Nsteps=1000)
+    create_all_neutrino_lookuptables(Npoints=500,Nsteps=1000)
     print '         DONE!'
     print ''
     print 'calculating expected neutrino events...'
@@ -353,15 +352,30 @@ for mm in range (len(m_DM_array)):
                     
     for mass_N in M_det_array:
         if 1 == SENSITIVITY_SCAN:
-            if(mass_N>900):
+            if(mass_N>5):
+                N_sim  = 1250
+                N_Q    = 1
+                factor = 10
+            if(mass_N>2500):
+                N_sim  = 625
+                N_Q    = 1
+                factor = 20
+            if(mass_N>7500):
+                N_sim  = 125
+                N_Q    = 1
+                factor = 100
+            if(mass_N>12500):
                 N_sim  = 25
-                N_Q    = 10
-                factor = 40
-            if(mass_N>9000):
-                N_sim  = 5
-                N_Q    = 5
+                N_Q    = 1
                 factor = 500
-
+            if(mass_N>55000):
+                N_sim  = 5
+                N_Q    = 1
+                factor = 2500
+            if(mass_N > 105000):
+                print 'avoid memory overload!'
+                sys.exit()
+            print 'N_sim', N_sim
             M_det = M_det0 * mass_N / mu_nu_ini
             time_array_nu,rate_array_nu,dt_nu,N_sun_arr,N_atmo_arr,N_dsnb_arr=\
                 tot_rate_nu(M_det,E_thr,t0,t1,steps=100)
@@ -474,6 +488,7 @@ for mm in range (len(m_DM_array)):
                 FIX_BIN_SIZES_SB = 0
     
                 for ff in range (factor):
+                    print 'loop', ff+1,'of', factor
                     ###simulate neutrino events
                     ###
                     t_src_solar_nu, E_rec_src_solar_nu, cos_src_solar_nu = \

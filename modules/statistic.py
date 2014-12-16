@@ -73,12 +73,8 @@ def get_cl(hist_SB, hist_B, Q_grid_SB, Q_grid_B, N_bins, steps, accuracy):
     dqSB = Q_grid_SB[4] - Q_grid_SB[3]
     dqB = Q_grid_B[4] - Q_grid_B[3]
 
-    print dqB, dqSB
-
     normSB = np.sum( dqSB * hist_SB )
     normB  = np.sum( dqB  * hist_B )
-    
-    print normB, normSB
 
     hist_SB = hist_SB/normSB
     hist_B = hist_B/normB
