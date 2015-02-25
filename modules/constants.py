@@ -114,7 +114,7 @@ N_erec=31#number of bins in recoil energy for 2d pdf
 N_theta=16#number of bins in event angle for 2d pdf
 E_rec_bin=np.linspace(E_thr,upper_threshold,N_erec)
 theta_bin=np.linspace(-1.,1.,N_theta)
-basenamepdf='pdfs/2dpdf_CF4_'+str(E_thr)+'keV'
+basenamepdf='pdfs/2dpdf_'+str(Z)+'_'+str(E_thr)+'keV'
 
 ###options
 ### (not sure if they really do what they say they do)

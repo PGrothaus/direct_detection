@@ -15,9 +15,14 @@ from scipy.interpolate import RectBivariateSpline
 from scipy.interpolate import interp1d,SmoothBivariateSpline
 from scipy.stats import norm
 #If libastro is locally installed, add it to the path variable
-sys.path.append('/home/pg3/Packages/pyephem-3.7.5.3/libastro-3.7.5')
+path1 = '/home/pyephem-3.7.5.3/libastro-3.7.5'
+sys.path.append( path1 )
 ##############################################################################
-
+if '/home/pyephem-3.7.5.3/libastro-3.7.5' == path1:
+    print ''
+    print 'Specify libastropath or comment line 19 out!'
+    print ''
+    sys.exit()
 
 ###For test modus of the 2dimensional pdf's
 ### (test=1 tests the pdf's)
@@ -77,7 +82,10 @@ N_sim = 250            #num of pseudo experiments generated in simulation
                         #total number of pseudo experiments = 
                         #factor * N_sim * N_Q
 
-SENSITIVITY_SCAN = 0
+#####################
+#CHOOSE RUN MODE#####
+#####################
+SENSITIVITY_SCAN = 1
 
 mode_max_Mdet=False
 if mode_max_Mdet==True: gain_direction=True
@@ -85,10 +93,8 @@ if mode_max_Mdet==True: gain_direction=True
 ###choose detector set-up
 ### (choose further parameters in constants.py)
 ### (keep observation time unchanged)
-M_det0=10.e6#g
-
 if(1 == SENSITIVITY_SCAN):
-    M_det_array = np.array( [50.] )
+    M_det_array = np.array( [10., 100., 1000., 10000.] )
     M_det0 = 1.e6
 else:
     M_det_array = np.array( [M_det0] )
@@ -100,7 +106,7 @@ t1_f=float(t1)-float(t0)
 
 ###specify mass and cross section range
 ###
-m_DM_array=np.array([6., 10.])
+m_DM_array=np.array([6., 50., 1000.])
 sigma=np.logspace(-40,-52, 120)
 filename_dm='testrun.txt'
 filename_dm = 'output/' + filename_dm
@@ -1281,11 +1287,11 @@ for mm in range (len(m_DM_array)):
                         ' '+str(N_DM_exp)+' '+str(cl_angle)+' '+str(cl_erec)+'\n')
                 f.close()
             
-            if cl_angle<0.00001 and mem1==0:#and cl_erec<0.00001 and mem1==0:
+            if cl_angle<0.00001 and mem1==0 and cl_erec<0.00001 and mem1==0:
                 waszero=True
                 mem1=1
         
-            if cl_angle>0.00135 and mem2==0:#cl_erec>0.1 and mem2==0:
+            if cl_angle>0.00135 and mem2==0 and cl_erec>0.00135 and mem2==0:
                 wasbig=True
                 mem2=1
     

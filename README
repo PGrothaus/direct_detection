@@ -1,38 +1,5 @@
-This code simulates a directional direct dark matter detector and finds whether a given detector set-up is sensitive to a certain dark matter mass and dark matter-nucleon cross-section.
+This code simulates a directional direct dark matter detector and checks whether a given detector set-up is capable to distinguish for a certain dark matter mass and dark matter-nucleon cross-section a dark matter signal from the neutrino background.
 
-This code consists out of 5 main files:
+For details on how to use the code, see man.pdf.
 
-constants.py:
-
-	initialises constants used for the simulation
-	specifies detector set-up
-	various options for simulations
-
-
-simulation_*.py:
-
-	Main file to start the simulation
-	There are three files of this type:
-		1) incoming neutrino flux set to +1sigma value
-		2) incoming neutrino flux set to -1sigma value
-		3) sensitivity evolving with exposure
-	The file specifies: 
-		dark matter mass and cross-section range
-		number of pseudo-experiments to be simulated
-
-		
-neutrino_functions_*.py:
-	
-	This file includes all important functions for the neutrino 
-	part of the simulation
-
-
-dm_functions.py:
-
-	All functions related to the dark matter part of the simulation.
-
-
-create_lookupfiles_*.py:	
-	
-	This part creates the neutrino energy spectra for a simulation
-	and further lookup-files that are used.
+This code was used to do the analysis of http://arxiv.org/abs/1406.5047.
